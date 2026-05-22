@@ -23,7 +23,12 @@ def _synthetic_loader() -> BakeData:
 
 
 def test_bake_is_deterministic(tmp_path: Path) -> None:
-    """Two consecutive bake() calls with the same seed produce byte-identical output."""
+    """Two consecutive bake() calls with the same seed produce byte-identical output.
+
+    Both calls run in the same process so numpy's SIMD reduction order is stable.
+    Cross-process runs may differ at the sub-ulp level (last 1–2 float64 digits),
+    which is acceptable for demo correctness.
+    """
     path1 = tmp_path / "trace1.jsonl"
     path2 = tmp_path / "trace2.jsonl"
 

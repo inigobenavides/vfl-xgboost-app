@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-guest: #6366f1;
+  --color-host: #10b981;
+  --color-wire: #f59e0b;
+  --color-private: #ef4444;
+  --color-public: #3b82f6;
+}
+
+:root {
+  color-scheme: light dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+}
