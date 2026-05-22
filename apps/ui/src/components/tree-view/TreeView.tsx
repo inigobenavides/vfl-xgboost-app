@@ -1,0 +1,240 @@
+/**
+ * TreeView — renders the tree-0 structure as an animated SVG.
+ *
+ * D3 hierarchy computes positions; React/SVG owns the DOM; Framer Motion
+ * handles per-node entrance animations and smooth layout reflows.
+ */
+
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  BOX_H,
+  BOX_W,
+  LEAF_BOX_H,
+  NODE_H,
+  NODE_W,
+  useTreeState,
+  type LayoutNode,
+} from "./useTreeState";
+import type { TraceEvent } from "../../lib/trace-reader";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const MARGIN = NODE_W; // padding around the tree extents
+
+// ---------------------------------------------------------------------------
+// Individual node shape
+// ---------------------------------------------------------------------------
+
+interface TreeNodeProps {
+  node: LayoutNode;
+  offsetX: number;
+}
+
+function TreeNodeShape({ node, offsetX }: TreeNodeProps) {
+  const { event } = node.data;
+  const x = node.x + offsetX;
+  const y = node.y;
+  const boxH = event.is_leaf ? LEAF_BOX_H : BOX_H;
+
+  return (
+    <motion.g
+      key={node.data.id}
+      initial={{ opacity: 0, scale: 0.4 }}
+      animate={{ opacity: 1, scale: 1, x, y }}
+      exit={{ opacity: 0, scale: 0.3 }}
+      transition={{ type: "spring", stiffness: 280, damping: 26 }}
+      style={{ originX: "50%", originY: "0%" }}
+    >
+      {/* Box */}
+      <rect
+        x={-BOX_W / 2}
+        y={-boxH / 2}
+        width={BOX_W}
+        height={boxH}
+        rx={6}
+        className={event.is_leaf ? "fill-gray-800 stroke-gray-600" : "fill-gray-800 stroke-gray-500"}
+        strokeWidth={1}
+      />
+
+      {event.is_leaf ? (
+        <>
+          {/* Leaf weight */}
+          <text
+            textAnchor="middle"
+            y={-7}
+            fontSize={11}
+            className="fill-guest font-mono"
+          >
+            weight
+          </text>
+          <text
+            textAnchor="middle"
+            y={9}
+            fontSize={13}
+            fontWeight={600}
+            className="fill-white"
+          >
+            {event.leaf_weight !== null ? event.leaf_weight.toFixed(4) : "—"}
+          </text>
+          {/* Sample count */}
+          <text textAnchor="middle" y={24} fontSize={10} className="fill-gray-400">
+            {event.n_samples} samples
+          </text>
+        </>
+      ) : (
+        <>
+          {/* Feature : threshold */}
+          <text
+            textAnchor="middle"
+            y={-10}
+            fontSize={12}
+            fontWeight={600}
+            className="fill-host"
+          >
+            {event.feature_id ?? "?"} : bin {event.threshold_bin ?? "?"}
+          </text>
+          {/* Gain */}
+          <text
+            textAnchor="middle"
+            y={5}
+            fontSize={11}
+            className="fill-public"
+          >
+            gain {event.gain !== null ? event.gain.toFixed(3) : "—"}
+          </text>
+          {/* Sample count */}
+          <text textAnchor="middle" y={19} fontSize={10} className="fill-gray-400">
+            {event.n_samples} samples
+          </text>
+        </>
+      )}
+    </motion.g>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Edge with sample counts
+// ---------------------------------------------------------------------------
+
+interface EdgeProps {
+  source: LayoutNode;
+  target: LayoutNode;
+  offsetX: number;
+  isLeft: boolean;
+}
+
+function Edge({ source, target, offsetX, isLeft }: EdgeProps) {
+  const sx = source.x + offsetX;
+  const sy = source.y + (source.data.event.is_leaf ? LEAF_BOX_H : BOX_H) / 2;
+  const tx = target.x + offsetX;
+  const ty = target.y - (target.data.event.is_leaf ? LEAF_BOX_H : BOX_H) / 2;
+
+  // Midpoint for edge label
+  const mx = (sx + tx) / 2;
+  const my = (sy + ty) / 2;
+
+  // Sample count to show: parent's samples_l for left child, samples_r for right
+  const sampleCount = isLeft
+    ? source.data.event.samples_l
+    : source.data.event.samples_r;
+
+  return (
+    <motion.g
+      key={`edge-${target.data.id}`}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <line
+        x1={sx}
+        y1={sy}
+        x2={tx}
+        y2={ty}
+        stroke="#4b5563"
+        strokeWidth={1.5}
+      />
+      {sampleCount > 0 && (
+        <text
+          x={mx}
+          y={my - 4}
+          textAnchor="middle"
+          fontSize={9}
+          fill="#6b7280"
+        >
+          {sampleCount}
+        </text>
+      )}
+    </motion.g>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
+interface TreeViewProps {
+  events: TraceEvent[];
+  eventIndex: number;
+}
+
+export function TreeView({ events, eventIndex }: TreeViewProps) {
+  const layout = useTreeState(events, eventIndex);
+
+  if (!layout.root) {
+    return (
+      <div className="flex items-center justify-center h-48 text-gray-600 text-sm font-mono">
+        Waiting for tree 0…
+      </div>
+    );
+  }
+
+  const { nodes, links, minX, maxX, maxY } = layout;
+
+  const offsetX = -minX + MARGIN;
+  const svgW = maxX - minX + MARGIN * 2;
+  const svgH = maxY + NODE_H + MARGIN / 2;
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg
+        width={svgW}
+        height={svgH}
+        viewBox={`0 0 ${svgW} ${svgH}`}
+        className="font-mono"
+      >
+        {/* Edges (rendered first so they appear behind nodes) */}
+        <AnimatePresence>
+          {links.map(({ source, target }) => {
+            const isLeft =
+              source.children !== null &&
+              source.children !== undefined &&
+              source.children[0]?.data.id === target.data.id;
+            return (
+              <Edge
+                key={`edge-${target.data.id}`}
+                source={source}
+                target={target}
+                offsetX={offsetX}
+                isLeft={isLeft}
+              />
+            );
+          })}
+        </AnimatePresence>
+
+        {/* Nodes */}
+        <AnimatePresence>
+          {nodes.map((node) => (
+            <TreeNodeShape
+              key={node.data.id}
+              node={node}
+              offsetX={offsetX}
+            />
+          ))}
+        </AnimatePresence>
+      </svg>
+    </div>
+  );
+}

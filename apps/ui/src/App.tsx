@@ -1,55 +1,122 @@
 import { useEffect, useRef, useState } from "react";
 import { TitleCard } from "./components/title-card/TitleCard";
 import { Hud } from "./components/hud/Hud";
+import { TreeView } from "./components/tree-view/TreeView";
+import { usePlayback } from "./lib/usePlayback";
 import { deriveRunMeta } from "./lib/runMeta";
 import { parseTrace, type TraceEvent } from "./lib/trace-reader";
 
 // ---------------------------------------------------------------------------
-// App-level state machine: cold-open → playing → done
-// The playback state machine inside Hud handles the fine-grained substates.
+// PlayerApp — inner component mounted only when events are loaded.
+// Owns the playback state machine and shares eventIndex with all visuals.
 // ---------------------------------------------------------------------------
 
-type AppStatus = "loading" | "error" | "cold-open" | "playing" | "done";
+type AppStatus = "cold-open" | "playing" | "done";
 
-interface AppState {
-  appStatus: AppStatus;
+interface PlayerAppProps {
   events: TraceEvent[];
-  errorMsg: string;
 }
 
-export default function App() {
-  const [state, setState] = useState<AppState>({
-    appStatus: "loading",
-    events: [],
-    errorMsg: "",
-  });
+function PlayerApp({ events }: PlayerAppProps) {
+  const [appStatus, setAppStatus] = useState<AppStatus>("cold-open");
+  const [playState, playDispatch] = usePlayback(events);
+  const runMeta = deriveRunMeta(events);
 
-  // Notified by Hud when the playback reaches "done"
-  const handleDone = () =>
-    setState((s) => ({ ...s, appStatus: "done" }));
+  // Transition app → done when playback finishes
+  const doneNotified = useRef(false);
+  useEffect(() => {
+    if (playState.status === "done" && !doneNotified.current) {
+      doneNotified.current = true;
+      setAppStatus("done");
+    }
+    if (playState.status !== "done") doneNotified.current = false;
+  }, [playState.status]);
 
-  // Triggered by TitleCard play button OR Space key while cold-open
-  const onPlay = () =>
-    setState((s) =>
-      s.appStatus === "cold-open" ? { ...s, appStatus: "playing" } : s,
-    );
-
-  // Space key while on the title card
-  const appStatusRef = useRef(state.appStatus);
-  appStatusRef.current = state.appStatus;
+  // Space while on title card transitions to playing
+  const appStatusRef = useRef(appStatus);
+  appStatusRef.current = appStatus;
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === " " && appStatusRef.current === "cold-open") {
         e.preventDefault();
-        onPlay();
+        setAppStatus("playing");
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, []); // stable — onPlay reads state via closure but is idempotent
+  }, []);
 
-  // Load trace on mount
+  const onPlay = () => setAppStatus((s) => (s === "cold-open" ? "playing" : s));
+
+  const isColdOpen = appStatus === "cold-open";
+
+  return (
+    <div className="min-h-screen bg-gray-950 text-gray-100 font-mono">
+      {/* Title card — visible until first play */}
+      {isColdOpen && <TitleCard runMeta={runMeta} onPlay={onPlay} />}
+
+      {/* Main content — shown after cold-open */}
+      {!isColdOpen && (
+        <div className="p-6 pb-44">
+          <header className="mb-4">
+            <h2 className="text-lg font-bold text-white">
+              VFL XGBoost — Protocol Replay
+            </h2>
+            <p className="text-gray-500 text-xs">
+              {runMeta.datasetName} · {runMeta.nTrees} trees · max_depth{" "}
+              {runMeta.maxDepth} · run{" "}
+              <span className="text-gray-400">{runMeta.runId}</span>
+            </p>
+          </header>
+
+          {appStatus === "done" && (
+            <div className="mb-4 flex items-center gap-3">
+              <span className="text-green-400 text-sm">Replay complete</span>
+              <button
+                className="text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
+                onClick={() => {
+                  setAppStatus("playing");
+                  playDispatch({ type: "restart" });
+                }}
+              >
+                ↻ Replay
+              </button>
+            </div>
+          )}
+
+          {/* Tree 0 visual — grows node by node during act 1 */}
+          <section className="mb-6">
+            <h3 className="text-xs text-gray-500 mb-2 uppercase tracking-wider">
+              Tree 0 structure
+            </h3>
+            <TreeView events={events} eventIndex={playState.eventIndex} />
+          </section>
+        </div>
+      )}
+
+      {/* HUD — always mounted (keeps state machine alive); invisible on cold-open */}
+      <Hud
+        events={events}
+        state={playState}
+        dispatch={playDispatch}
+        hidden={isColdOpen}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// App — outer shell that handles trace loading
+// ---------------------------------------------------------------------------
+
+type LoadStatus = "loading" | "loaded" | "error";
+
+export default function App() {
+  const [loadStatus, setLoadStatus] = useState<LoadStatus>("loading");
+  const [events, setEvents] = useState<TraceEvent[]>([]);
+  const [errorMsg, setErrorMsg] = useState("");
+
   useEffect(() => {
     fetch("/traces/uci-adult-canonical.jsonl")
       .then((res) => {
@@ -57,23 +124,16 @@ export default function App() {
         return res.text();
       })
       .then((text) => {
-        const events = parseTrace(text);
-        setState({ appStatus: "cold-open", events, errorMsg: "" });
+        setEvents(parseTrace(text));
+        setLoadStatus("loaded");
       })
       .catch((err: unknown) => {
-        setState({
-          appStatus: "error",
-          events: [],
-          errorMsg: err instanceof Error ? err.message : String(err),
-        });
+        setErrorMsg(err instanceof Error ? err.message : String(err));
+        setLoadStatus("error");
       });
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
-
-  if (state.appStatus === "loading") {
+  if (loadStatus === "loading") {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <p className="text-gray-400 animate-pulse font-mono">Loading trace…</p>
@@ -81,62 +141,13 @@ export default function App() {
     );
   }
 
-  if (state.appStatus === "error") {
+  if (loadStatus === "error") {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <p className="text-red-400 font-mono">Error: {state.errorMsg}</p>
+        <p className="text-red-400 font-mono">Error: {errorMsg}</p>
       </div>
     );
   }
 
-  const runMeta = deriveRunMeta(state.events);
-
-  return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 font-mono">
-      {/* Title card overlay — visible until user starts playback */}
-      {state.appStatus === "cold-open" && (
-        <TitleCard runMeta={runMeta} onPlay={onPlay} />
-      )}
-
-      {/* Playback view — always mounted once events are loaded so the
-          state machine is ready; hidden behind TitleCard until started */}
-      {(state.appStatus === "playing" || state.appStatus === "done") && (
-        <div className="p-8 pb-40">
-          <h2 className="text-lg font-bold text-white mb-1">
-            VFL XGBoost — Protocol Replay
-          </h2>
-          <p className="text-gray-500 text-xs mb-6">
-            {runMeta.datasetName} · {runMeta.nTrees} trees · max_depth{" "}
-            {runMeta.maxDepth} · run{" "}
-            <span className="text-gray-400">{runMeta.runId}</span>
-          </p>
-
-          {state.appStatus === "done" && (
-            <div className="mb-4 flex items-center gap-3">
-              <span className="text-green-400 text-sm">Replay complete</span>
-              <button
-                className="text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
-                onClick={() =>
-                  setState((s) => ({ ...s, appStatus: "playing" }))
-                }
-              >
-                ↻ Replay
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* HUD — rendered once events are loaded, regardless of app status.
-          Mounted hidden while cold-open so its reducer is ready to play
-          as soon as onPlay fires. */}
-      {state.events.length > 0 && (
-        <Hud
-          events={state.events}
-          hidden={state.appStatus === "cold-open"}
-          onDone={handleDone}
-        />
-      )}
-    </div>
-  );
+  return <PlayerApp events={events} />;
 }

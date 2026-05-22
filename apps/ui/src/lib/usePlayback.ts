@@ -14,7 +14,9 @@ export type { PlaybackAction, PlaybackConfig, PlaybackState };
 export { currentChapterIndex };
 
 /** React hook wiring the pure playback reducer to RAF and keyboard. */
-export function usePlayback(events: TraceEvent[]): [PlaybackState, (action: PlaybackAction) => void] {
+export function usePlayback(
+  events: TraceEvent[],
+): [PlaybackState, (action: PlaybackAction) => void] {
   const config = useRef<PlaybackConfig>(buildConfig(events));
   config.current = buildConfig(events);
 
@@ -23,12 +25,9 @@ export function usePlayback(events: TraceEvent[]): [PlaybackState, (action: Play
     initialState(),
   );
 
-  const dispatch = useCallback(
-    (action: PlaybackAction) => rawDispatch(action),
-    [],
-  );
+  const dispatch = useCallback((action: PlaybackAction) => rawDispatch(action), []);
 
-  // RAF loop — runs whenever status is "active" (playing or holding)
+  // RAF loop — active only when playing or in a hold state
   const statusRef = useRef(state.status);
   statusRef.current = state.status;
 
@@ -41,7 +40,6 @@ export function usePlayback(events: TraceEvent[]): [PlaybackState, (action: Play
 
     let lastTime = performance.now();
     let rafId: number;
-
     const frame = (now: number) => {
       dispatch({ type: "tick", deltaMs: now - lastTime });
       lastTime = now;
@@ -54,11 +52,11 @@ export function usePlayback(events: TraceEvent[]): [PlaybackState, (action: Play
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      // Don't intercept events inside form elements
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
-      ) return;
+      )
+        return;
 
       switch (e.key) {
         case " ":
