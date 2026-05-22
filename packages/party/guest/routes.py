@@ -15,6 +15,7 @@ import numpy.typing as npt
 from fastapi import APIRouter, HTTPException
 
 from packages.crypto import AdditiveSSProtocol
+from packages.party.split_finder import scan_best_split
 from packages.shared.models import (
     ApplySplitRequest,
     FindSplitRequest,
@@ -38,12 +39,8 @@ def make_guest_router(
     labels: npt.NDArray[np.float64],
     predictions: npt.NDArray[np.float64],
     lambda_reg: float,
-) -> tuple[APIRouter, dict[str, NodeState]]:
-    """Return (router, node_state_dict).
-
-    The node_state_dict is mutable and shared between requests so callers
-    can inspect it in tests.
-    """
+) -> APIRouter:
+    """Return a configured APIRouter for the guest party."""
     router = APIRouter()
     _node_state: dict[str, NodeState] = {}
     _proto = AdditiveSSProtocol()
@@ -89,9 +86,8 @@ def make_guest_router(
         if not req.host_feature_shares:
             raise HTTPException(status_code=422, detail="host_feature_shares must not be empty")
 
-        best_gain = -float("inf")
-        best_feature_id = ""
-        best_threshold = 0.0
+        g_hists: dict[str, npt.NDArray[np.float64]] = {}
+        h_hists: dict[str, npt.NDArray[np.float64]] = {}
 
         for feature_id, feat_shares in req.host_feature_shares.items():
             bucket_indices_list = req.bucket_indices_per_feature.get(feature_id)
@@ -115,34 +111,15 @@ def make_guest_router(
             )
 
             # Reconstruct full cumulative histograms
-            g_hist = _proto.reconstruct(host_g_hist_a, g_hist_b)
-            h_hist = _proto.reconstruct(host_h_hist_a, h_hist_b)
+            g_hists[feature_id] = _proto.reconstruct(host_g_hist_a, g_hist_b)
+            h_hists[feature_id] = _proto.reconstruct(host_h_hist_a, h_hist_b)
 
-            g_total = float(g_hist[-1])
-            h_total = float(h_hist[-1])
-
-            # Scan thresholds (each bin boundary k splits [0..k] vs [k+1..n_buckets-1])
-            for k in range(req.n_buckets - 1):
-                g_left = float(g_hist[k])
-                h_left = float(h_hist[k])
-                g_right = g_total - g_left
-                h_right = h_total - h_left
-
-                gain = (
-                    g_left**2 / (h_left + lambda_reg)
-                    + g_right**2 / (h_right + lambda_reg)
-                    - g_total**2 / (h_total + lambda_reg)
-                )
-                if gain > best_gain:
-                    best_gain = gain
-                    best_feature_id = feature_id
-                    best_threshold = float(k)
-
-        return SplitDecision(
-            feature_id=best_feature_id,
-            threshold=best_threshold,
-            gain=max(best_gain, 0.0),
-        )
+        decision = scan_best_split(g_hists, h_hists, req.n_buckets, lambda_reg)
+        if decision is None:
+            # No positive-gain split — return a zero-gain result so the
+            # coordinator can decide whether to make this node a leaf.
+            return SplitDecision(feature_id="", threshold=0.0, gain=0.0)
+        return decision
 
     @router.post("/apply_split")
     def apply_split(req: ApplySplitRequest) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
@@ -153,4 +130,4 @@ def make_guest_router(
     def health() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         return {"status": "ok"}
 
-    return router, _node_state
+    return router

@@ -31,6 +31,6 @@ def create_guest_app(
     predictions: npt.NDArray[np.float64] = np.full(n_samples, 0.5, dtype=np.float64)
 
     app = FastAPI(title="VFL Guest Party", version="0.1.0")
-    router, _ = make_guest_router(labels=labels, predictions=predictions, lambda_reg=lambda_reg)
+    router = make_guest_router(labels=labels, predictions=predictions, lambda_reg=lambda_reg)
     app.include_router(router)
     return app
