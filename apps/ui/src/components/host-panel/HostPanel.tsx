@@ -140,12 +140,10 @@ export function HostPanel({ events, eventIndex }: HostPanelProps) {
         <span className="text-[10px] text-gray-500">features only</span>
       </div>
 
-      {/* Inbox lane placeholder */}
+      {/* Inbox lane — pills from coordinator land here */}
       <div>
-        <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Inbox</p>
-        <div className="h-6 border border-dashed border-gray-800 rounded flex items-center justify-center">
-          <span className="text-[9px] text-gray-700">← share pills slice 7</span>
-        </div>
+        <p className="text-[10px] text-wire/40 uppercase tracking-wider mb-1">← Inbox</p>
+        <div className="h-6 border border-dashed border-wire/20 rounded" />
       </div>
 
       {/* Feature usage heatmap */}

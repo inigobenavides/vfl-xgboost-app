@@ -4,6 +4,7 @@ import { Hud } from "./components/hud/Hud";
 import { TreeView } from "./components/tree-view/TreeView";
 import { GuestPanel } from "./components/guest-panel/GuestPanel";
 import { HostPanel } from "./components/host-panel/HostPanel";
+import { MessageWire } from "./components/message-wire/MessageWire";
 import { usePlayback } from "./lib/usePlayback";
 import { deriveRunMeta } from "./lib/runMeta";
 import { parseTrace, type TraceEvent } from "./lib/trace-reader";
@@ -88,7 +89,7 @@ function PlayerApp({ events }: PlayerAppProps) {
           )}
 
           {/* Three-column layout: guest | tree | host */}
-          <div className="grid grid-cols-[220px_1fr_220px] gap-4 items-start">
+          <div className="relative grid grid-cols-[220px_1fr_220px] gap-4 items-start">
             <GuestPanel events={events} eventIndex={playState.eventIndex} />
 
             <section>
@@ -99,6 +100,8 @@ function PlayerApp({ events }: PlayerAppProps) {
             </section>
 
             <HostPanel events={events} eventIndex={playState.eventIndex} />
+
+            <MessageWire events={events} eventIndex={playState.eventIndex} />
           </div>
         </div>
       )}
