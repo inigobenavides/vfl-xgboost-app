@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
+
 import numpy as np
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from packages.crypto import AdditiveSSProtocol
@@ -24,16 +27,20 @@ _FEATURES: np.ndarray = RNG.random((N_SAMPLES, N_FEATURES)).astype(np.float64)  
 
 
 @pytest.fixture()
-def client() -> TestClient:
-    app = create_host_app(
+def host_app() -> FastAPI:
+    return create_host_app(
         features=_FEATURES,
         feature_names=FEATURE_NAMES,
         n_bins=N_BINS,
     )
+
+
+@pytest.fixture()
+def client(host_app: FastAPI) -> Generator[TestClient, None, None]:
     # TestClient must be used as a context manager so that the ASGI lifespan
     # events fire and app.state.host_state is populated before any request.
-    with TestClient(app, raise_server_exceptions=True) as tc:
-        return tc
+    with TestClient(host_app, raise_server_exceptions=True) as tc:
+        yield tc
 
 
 def _make_shares(n_samples: int) -> tuple[Share, Share]:
@@ -175,6 +182,38 @@ class TestApplySplit:
         )
         assert resp.status_code == 200
         assert resp.json() == {}
+
+    def test_apply_split_cleans_up_parent_partition(
+        self, client: TestClient, host_app: FastAPI
+    ) -> None:
+        """Parent node partition should be removed after apply_split; only children remain."""
+        node_id = "node_cleanup"
+        sample_indices = list(range(N_SAMPLES))
+        g_share, h_share = _make_shares(N_SAMPLES)
+
+        # Register the parent partition via histogram_shares.
+        client.post(
+            "/histogram_shares",
+            content=_build_request_json(sample_indices, g_share, h_share, node_id=node_id),
+            headers={"Content-Type": "application/json"},
+        )
+
+        # Apply a split.
+        resp = client.post(
+            "/apply_split",
+            json={
+                "node_id": node_id,
+                "feature_id": FEATURE_NAMES[0],
+                "threshold": 0.5,
+            },
+        )
+        assert resp.status_code == 200
+
+        # Verify cleanup: parent gone, children present.
+        partitions = host_app.state.host_state.node_partitions
+        assert node_id not in partitions, "Parent node partition should have been removed."
+        assert f"{node_id}_left" in partitions, "Left child partition should be present."
+        assert f"{node_id}_right" in partitions, "Right child partition should be present."
 
 
 # ---------------------------------------------------------------------------

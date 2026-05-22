@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 import numpy.typing as npt
 from fastapi import APIRouter, Request
 
 from packages.crypto import AdditiveSSProtocol
 from packages.party.common.binning import assign_bins
+from packages.party.host.state import HostState
 from packages.shared.models import (
     ApplySplitRequest,
     FeatureHistogramShares,
@@ -21,8 +20,8 @@ router = APIRouter()
 _proto = AdditiveSSProtocol()
 
 
-def _get_state(request: Request) -> dict[str, Any]:
-    state: dict[str, Any] = request.app.state.host_state
+def _get_state(request: Request) -> HostState:
+    state: HostState = request.app.state.host_state
     return state
 
 
@@ -37,11 +36,11 @@ def histogram_shares(
     and aggregates them into bin-level histogram shares.
     """
     state = _get_state(request)
-    features: npt.NDArray[np.float64] = state["features"]
-    feature_names: list[str] = state["feature_names"]
-    bin_boundaries: dict[str, npt.NDArray[np.float64]] = state["bin_boundaries"]
-    n_bins: int = state["n_bins"]
-    node_partitions: dict[str, npt.NDArray[np.int64]] = state["node_partitions"]
+    features: npt.NDArray[np.float64] = state.features
+    feature_names: list[str] = state.feature_names
+    bin_boundaries: dict[str, npt.NDArray[np.float64]] = state.bin_boundaries
+    n_bins: int = state.n_bins
+    node_partitions: dict[str, npt.NDArray[np.int64]] = state.node_partitions
 
     sample_indices = np.array(body.sample_indices, dtype=np.int64)
 
@@ -91,10 +90,10 @@ def apply_split(
     The host maps samples to bins and splits on bin index <= threshold.
     """
     state = _get_state(request)
-    features: npt.NDArray[np.float64] = state["features"]
-    feature_names: list[str] = state["feature_names"]
-    bin_boundaries: dict[str, npt.NDArray[np.float64]] = state["bin_boundaries"]
-    node_partitions: dict[str, npt.NDArray[np.int64]] = state["node_partitions"]
+    features: npt.NDArray[np.float64] = state.features
+    feature_names: list[str] = state.feature_names
+    bin_boundaries: dict[str, npt.NDArray[np.float64]] = state.bin_boundaries
+    node_partitions: dict[str, npt.NDArray[np.int64]] = state.node_partitions
 
     col_idx = feature_names.index(body.feature_id)
     threshold_bin = int(body.threshold)
@@ -109,5 +108,6 @@ def apply_split(
 
     node_partitions[f"{body.node_id}_left"] = left_indices
     node_partitions[f"{body.node_id}_right"] = right_indices
+    node_partitions.pop(body.node_id, None)
 
     return {}

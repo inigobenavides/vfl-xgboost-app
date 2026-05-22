@@ -5,7 +5,6 @@ import tempfile
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -13,6 +12,9 @@ from fastapi import FastAPI
 
 from packages.party.common.binning import compute_bin_boundaries
 from packages.party.host.routes import router
+from packages.party.host.state import HostState
+
+__all__ = ["HostState", "create_host_app"]
 
 
 def create_host_app(
@@ -64,14 +66,12 @@ def create_host_app(
         edges_path.write_text(json.dumps(serialisable, indent=2))
 
         # Shared mutable state for the lifetime of the app.
-        host_state: dict[str, Any] = {
-            "features": _features,
-            "feature_names": _feature_names,
-            "bin_boundaries": bin_boundaries,
-            "n_bins": _n_bins,
-            "node_partitions": {},  # node_id -> NDArray[int64]
-        }
-        app.state.host_state = host_state
+        app.state.host_state = HostState(
+            features=_features,
+            feature_names=_feature_names,
+            bin_boundaries=bin_boundaries,
+            n_bins=_n_bins,
+        )
 
         yield
 
