@@ -10,9 +10,8 @@
 // ---------------------------------------------------------------------------
 
 export interface PrivacyCheck {
-  raw_values_exposed: boolean;
-  check_passed: boolean;
-  note: string;
+  no_raw_gradients: boolean;
+  no_raw_features: boolean;
 }
 
 export interface ProtocolMessageEvent {
