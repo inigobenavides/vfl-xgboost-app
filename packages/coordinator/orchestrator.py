@@ -18,6 +18,7 @@ from packages.shared.models import (
     PrivacyCheck,
     SplitDecision,
     TraceEntry,
+    UpdatePredictionsRequest,
 )
 
 _JSON_HEADERS = {"content-type": "application/json"}
@@ -88,6 +89,18 @@ class Coordinator:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    async def update_predictions(
+        self,
+        sample_leaf_weights: list[float],
+        learning_rate: float,
+    ) -> None:
+        """Step 5 — broadcast leaf weights to the guest so it can update predictions."""
+        req = UpdatePredictionsRequest(
+            sample_leaf_weights=sample_leaf_weights,
+            learning_rate=learning_rate,
+        )
+        await self._post(f"{self._guest_url}/update_predictions", req.model_dump_json())
 
     async def run_node(
         self,

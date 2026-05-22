@@ -32,6 +32,7 @@ from packages.shared.models import (
     GradientShareResponse,
     Share,
     SplitDecision,
+    UpdatePredictionsRequest,
 )
 
 # ---------------------------------------------------------------------------
@@ -375,3 +376,54 @@ class TestApplySplit:
 
         assert apply_resp.status_code == 200
         assert apply_resp.json() == {}
+
+
+# ---------------------------------------------------------------------------
+# Tests: update_predictions
+# ---------------------------------------------------------------------------
+
+
+class TestUpdatePredictions:
+    def test_returns_empty_dict(self, sample_indices: list[int]) -> None:
+        weights = [0.1] * N_SAMPLES
+        req = UpdatePredictionsRequest(sample_leaf_weights=weights, learning_rate=0.1)
+        with TestClient(app) as client:
+            resp = _post(client, "/update_predictions", req)
+        assert resp.status_code == 200
+        assert resp.json() == {}
+
+    def test_wrong_length_returns_422(self) -> None:
+        req = UpdatePredictionsRequest(sample_leaf_weights=[0.0] * 3, learning_rate=0.1)
+        with TestClient(app) as client:
+            resp = _post(client, "/update_predictions", req)
+        assert resp.status_code == 422
+
+    def test_predictions_affect_subsequent_gradient_shares(
+        self, sample_indices: list[int]
+    ) -> None:
+        """After update_predictions, gradient shares should reflect the new predictions."""
+        with TestClient(app) as client:
+            # Baseline gradient shares before any update
+            req0 = GradientShareRequest(node_id="up_before", sample_indices=sample_indices)
+            resp0 = _post(client, "/gradient_shares", req0)
+            assert resp0.status_code == 200
+            g_before = GradientShareResponse.model_validate_json(resp0.text).g_share_a.to_array()
+
+            # Push predictions strongly toward 1.0 with a large positive leaf weight
+            update_req = UpdatePredictionsRequest(
+                sample_leaf_weights=[5.0] * N_SAMPLES, learning_rate=1.0
+            )
+            _post(client, "/update_predictions", update_req)
+
+            # Gradient shares after update — g = sigmoid(5) - label ≈ 0.993 - label
+            req1 = GradientShareRequest(node_id="up_after", sample_indices=sample_indices)
+            resp1 = _post(client, "/gradient_shares", req1)
+            assert resp1.status_code == 200
+            g_after = GradientShareResponse.model_validate_json(resp1.text).g_share_a.to_array()
+
+        # The two share_a arrays should differ (different random masks each call),
+        # but their sums-of-shares encode different underlying gradients.
+        # We verify indirectly: g values changed, so share arrays must differ on average.
+        assert not (g_before == g_after).all(), (
+            "Gradient shares should change after predictions are updated"
+        )

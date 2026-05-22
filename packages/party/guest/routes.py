@@ -23,6 +23,7 @@ from packages.shared.models import (
     GradientShareResponse,
     Share,
     SplitDecision,
+    UpdatePredictionsRequest,
 )
 
 
@@ -45,8 +46,24 @@ def make_guest_router(
     _node_state: dict[str, NodeState] = {}
     _proto = AdditiveSSProtocol()
 
-    # Wrap mutable predictions so the closure sees updates
+    # Logit accumulator and sigmoid predictions — updated after each tree
+    _logit = np.zeros(len(labels), dtype=np.float64)
     _preds = predictions.copy()
+
+    @router.post("/update_predictions")
+    def update_predictions(req: UpdatePredictionsRequest) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
+        if len(req.sample_leaf_weights) != len(labels):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"sample_leaf_weights length {len(req.sample_leaf_weights)} "
+                    f"!= n_samples {len(labels)}"
+                ),
+            )
+        weights = np.array(req.sample_leaf_weights, dtype=np.float64)
+        _logit[:] += req.learning_rate * weights
+        _preds[:] = 1.0 / (1.0 + np.exp(-_logit))
+        return {}
 
     @router.post("/gradient_shares", response_model=GradientShareResponse)
     def gradient_shares(req: GradientShareRequest) -> GradientShareResponse:  # pyright: ignore[reportUnusedFunction]

@@ -96,6 +96,18 @@ class HistogramShareResponse(BaseModel):
 # --- Shared endpoints ---
 
 
+class UpdatePredictionsRequest(BaseModel):
+    """Coordinator → Guest: update predictions after one tree is built.
+
+    sample_leaf_weights[i] is the leaf weight assigned to training sample i
+    by the tree just built. The guest accumulates logit[i] += lr * weight[i]
+    and recomputes its prediction probabilities.
+    """
+
+    sample_leaf_weights: list[float]
+    learning_rate: float
+
+
 class ApplySplitRequest(BaseModel):
     """Coordinator → Guest/Host: partition samples according to the chosen split."""
 
