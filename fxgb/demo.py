@@ -20,6 +20,7 @@ import numpy.typing as npt
 
 from packages.crypto.additive_ss import AdditiveSSProtocol
 from packages.party.common.binning import assign_bins, compute_bin_boundaries
+from packages.party.split_finder import find_best_split
 from packages.xgb_core.baseline import HOST_FEATURES
 
 logger = logging.getLogger(__name__)
@@ -67,72 +68,6 @@ def _sigmoid(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
 # ---------------------------------------------------------------------------
 
 
-def _find_best_split(
-    features: npt.NDArray[np.float64],
-    feature_names: list[str],
-    g: npt.NDArray[np.float64],
-    h: npt.NDArray[np.float64],
-    sample_indices: npt.NDArray[np.int64],
-    n_bins: int,
-    lambda_reg: float,
-    bin_boundaries: dict[str, npt.NDArray[np.float64]],
-    proto: AdditiveSSProtocol,
-) -> tuple[str, int, float] | None:
-    """Return (feature_id, threshold_bin, gain) or None when no gain > 0."""
-    g_i = g[sample_indices]
-    h_i = h[sample_indices]
-
-    # Guest secret-shares gradients
-    g_share_a, g_share_b = proto.share(g_i)
-    h_share_a, h_share_b = proto.share(h_i)
-
-    best_gain = 0.0
-    best_feature_id = ""
-    best_threshold = 0
-
-    for col_idx, feat_name in enumerate(feature_names):
-        col: npt.NDArray[np.float64] = features[sample_indices, col_idx]
-        bucket_indices = assign_bins(col, bin_boundaries[feat_name])
-
-        # Host aggregates share_a into per-bin histogram shares
-        g_hist_a = proto.aggregate(g_share_a, bucket_indices, n_bins)
-        h_hist_a = proto.aggregate(h_share_a, bucket_indices, n_bins)
-
-        # Guest aggregates share_b with the same bucket structure
-        g_hist_b = proto.aggregate(g_share_b, bucket_indices, n_bins)
-        h_hist_b = proto.aggregate(h_share_b, bucket_indices, n_bins)
-
-        # Guest reconstructs full histograms
-        g_hist = proto.reconstruct(g_hist_a, g_hist_b)
-        h_hist = proto.reconstruct(h_hist_a, h_hist_b)
-
-        g_total = float(g_hist[-1])
-        h_total = float(h_hist[-1])
-
-        for k in range(n_bins - 1):
-            g_left = float(g_hist[k])
-            h_left = float(h_hist[k])
-            g_right = g_total - g_left
-            h_right = h_total - h_left
-
-            if h_left <= 0.0 or h_right <= 0.0:
-                continue
-
-            gain = (
-                g_left**2 / (h_left + lambda_reg)
-                + g_right**2 / (h_right + lambda_reg)
-                - g_total**2 / (h_total + lambda_reg)
-            )
-            if gain > best_gain:
-                best_gain = gain
-                best_feature_id = feat_name
-                best_threshold = k
-
-    if not best_feature_id:
-        return None
-    return best_feature_id, best_threshold, best_gain
-
-
 def _build_tree(
     features: npt.NDArray[np.float64],
     feature_names: list[str],
@@ -159,13 +94,21 @@ def _build_tree(
         if depth >= max_depth or len(idx) < MIN_CHILD_SAMPLES:
             continue
 
-        split = _find_best_split(
-            features, feature_names, g, h, idx, n_bins, lambda_reg, bin_boundaries, proto
+        decision = find_best_split(
+            proto=proto,
+            g=g,
+            h=h,
+            sample_indices=idx,
+            features=features,
+            feature_names=feature_names,
+            bin_boundaries=bin_boundaries,
+            n_bins=n_bins,
+            lambda_reg=lambda_reg,
         )
-        if split is None:
+        if decision is None:
             continue
 
-        feat_id, thresh_bin, _ = split
+        feat_id, thresh_bin = decision.feature_id, int(decision.threshold)
         col_idx = feature_names.index(feat_id)
         col_values: npt.NDArray[np.float64] = features[idx, col_idx]
         bucket_indices = assign_bins(col_values, bin_boundaries[feat_id])

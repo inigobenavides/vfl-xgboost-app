@@ -16,7 +16,12 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 
-from packages.crypto.additive_ss import SCALE, AdditiveSSProtocol, P, _addmod  # type: ignore[reportPrivateUsage]
+from packages.crypto.additive_ss import (  # type: ignore[reportPrivateUsage]
+    SCALE,
+    AdditiveSSProtocol,
+    P,
+    _addmod,
+)
 
 # ---------------------------------------------------------------------------
 # Shared strategies
