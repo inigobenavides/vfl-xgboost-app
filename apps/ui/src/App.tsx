@@ -1,43 +1,56 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { TitleCard } from "./components/title-card/TitleCard";
 import { Hud } from "./components/hud/Hud";
-import {
-  countByType,
-  parseTrace,
-  type TraceEvent,
-  type TraceEventType,
-} from "./lib/trace-reader";
+import { deriveRunMeta } from "./lib/runMeta";
+import { parseTrace, type TraceEvent } from "./lib/trace-reader";
 
-type LoadState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "loaded"; events: TraceEvent[]; counts: Map<TraceEventType, number> }
-  | { status: "error"; message: string };
+// ---------------------------------------------------------------------------
+// App-level state machine: cold-open → playing → done
+// The playback state machine inside Hud handles the fine-grained substates.
+// ---------------------------------------------------------------------------
 
-const TYPE_ORDER: TraceEventType[] = [
-  "chapter_marker",
-  "tree_start",
-  "node_expanded",
-  "protocol_message",
-  "gain_curve",
-  "reconstruction_aggregate",
-  "auc_delta",
-];
+type AppStatus = "loading" | "error" | "cold-open" | "playing" | "done";
 
-const TYPE_COLORS: Record<TraceEventType, string> = {
-  chapter_marker: "text-wire",
-  tree_start: "text-guest",
-  node_expanded: "text-host",
-  protocol_message: "text-wire",
-  gain_curve: "text-public",
-  reconstruction_aggregate: "text-private",
-  auc_delta: "text-host",
-};
+interface AppState {
+  appStatus: AppStatus;
+  events: TraceEvent[];
+  errorMsg: string;
+}
 
 export default function App() {
-  const [load, setLoad] = useState<LoadState>({ status: "idle" });
+  const [state, setState] = useState<AppState>({
+    appStatus: "loading",
+    events: [],
+    errorMsg: "",
+  });
+
+  // Notified by Hud when the playback reaches "done"
+  const handleDone = () =>
+    setState((s) => ({ ...s, appStatus: "done" }));
+
+  // Triggered by TitleCard play button OR Space key while cold-open
+  const onPlay = () =>
+    setState((s) =>
+      s.appStatus === "cold-open" ? { ...s, appStatus: "playing" } : s,
+    );
+
+  // Space key while on the title card
+  const appStatusRef = useRef(state.appStatus);
+  appStatusRef.current = state.appStatus;
 
   useEffect(() => {
-    setLoad({ status: "loading" });
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === " " && appStatusRef.current === "cold-open") {
+        e.preventDefault();
+        onPlay();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []); // stable — onPlay reads state via closure but is idempotent
+
+  // Load trace on mount
+  useEffect(() => {
     fetch("/traces/uci-adult-canonical.jsonl")
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -45,75 +58,84 @@ export default function App() {
       })
       .then((text) => {
         const events = parseTrace(text);
-        const counts = countByType(events);
-        setLoad({ status: "loaded", events, counts });
+        setState({ appStatus: "cold-open", events, errorMsg: "" });
       })
       .catch((err: unknown) => {
-        setLoad({
-          status: "error",
-          message: err instanceof Error ? err.message : String(err),
+        setState({
+          appStatus: "error",
+          events: [],
+          errorMsg: err instanceof Error ? err.message : String(err),
         });
       });
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
+  if (state.appStatus === "loading") {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <p className="text-gray-400 animate-pulse font-mono">Loading trace…</p>
+      </div>
+    );
+  }
+
+  if (state.appStatus === "error") {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <p className="text-red-400 font-mono">Error: {state.errorMsg}</p>
+      </div>
+    );
+  }
+
+  const runMeta = deriveRunMeta(state.events);
+
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 p-8 pb-40 font-mono">
-      <h1 className="text-2xl font-bold mb-2 text-white">
-        VFL XGBoost — Protocol Replay
-      </h1>
-      <p className="text-gray-400 mb-8 text-sm">
-        Federated vertical XGBoost · UCI Adult · canonical trace
-      </p>
-
-      {load.status === "idle" && <p className="text-gray-500">Waiting…</p>}
-
-      {load.status === "loading" && (
-        <p className="text-gray-400 animate-pulse">Loading trace…</p>
+    <div className="min-h-screen bg-gray-950 text-gray-100 font-mono">
+      {/* Title card overlay — visible until user starts playback */}
+      {state.appStatus === "cold-open" && (
+        <TitleCard runMeta={runMeta} onPlay={onPlay} />
       )}
 
-      {load.status === "error" && (
-        <p className="text-red-400">Error: {load.message}</p>
+      {/* Playback view — always mounted once events are loaded so the
+          state machine is ready; hidden behind TitleCard until started */}
+      {(state.appStatus === "playing" || state.appStatus === "done") && (
+        <div className="p-8 pb-40">
+          <h2 className="text-lg font-bold text-white mb-1">
+            VFL XGBoost — Protocol Replay
+          </h2>
+          <p className="text-gray-500 text-xs mb-6">
+            {runMeta.datasetName} · {runMeta.nTrees} trees · max_depth{" "}
+            {runMeta.maxDepth} · run{" "}
+            <span className="text-gray-400">{runMeta.runId}</span>
+          </p>
+
+          {state.appStatus === "done" && (
+            <div className="mb-4 flex items-center gap-3">
+              <span className="text-green-400 text-sm">Replay complete</span>
+              <button
+                className="text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
+                onClick={() =>
+                  setState((s) => ({ ...s, appStatus: "playing" }))
+                }
+              >
+                ↻ Replay
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
-      {load.status === "loaded" && (
-        <>
-          <p className="text-green-400 text-lg mb-4">
-            Loaded{" "}
-            <span className="text-white font-bold">
-              {load.events.length.toLocaleString()}
-            </span>{" "}
-            events
-          </p>
-
-          <table className="border-collapse text-sm mb-6">
-            <thead>
-              <tr className="text-gray-400 border-b border-gray-800">
-                <th className="text-left pr-8 pb-2">Event type</th>
-                <th className="text-right pb-2">Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              {TYPE_ORDER.filter((t) => load.counts.has(t)).map((t) => (
-                <tr key={t} className="border-b border-gray-900">
-                  <td className={`pr-8 py-1 ${TYPE_COLORS[t]}`}>{t}</td>
-                  <td className="text-right text-gray-200 py-1">
-                    {load.counts.get(t)!.toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <p className="text-gray-500 text-xs mb-2">
-            Keyboard: <kbd className="bg-gray-800 px-1 rounded">Space</kbd> play/pause ·{" "}
-            <kbd className="bg-gray-800 px-1 rounded">← →</kbd> step ·{" "}
-            <kbd className="bg-gray-800 px-1 rounded">J K</kbd> chapter ·{" "}
-            <kbd className="bg-gray-800 px-1 rounded">1–4</kbd> jump ·{" "}
-            <kbd className="bg-gray-800 px-1 rounded">R</kbd> restart
-          </p>
-
-          <Hud events={load.events} />
-        </>
+      {/* HUD — rendered once events are loaded, regardless of app status.
+          Mounted hidden while cold-open so its reducer is ready to play
+          as soon as onPlay fires. */}
+      {state.events.length > 0 && (
+        <Hud
+          events={state.events}
+          hidden={state.appStatus === "cold-open"}
+          onDone={handleDone}
+        />
       )}
     </div>
   );

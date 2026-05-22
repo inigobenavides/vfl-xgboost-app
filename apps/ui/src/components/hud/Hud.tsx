@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react";
+import { useEffect, useRef, type MouseEvent } from "react";
 import { buildConfig, currentChapterIndex, SPEEDS, type Speed } from "../../lib/playback";
 import { usePlayback } from "../../lib/usePlayback";
 import type { TraceEvent, ChapterName } from "../../lib/trace-reader";
@@ -104,11 +104,25 @@ function Scrubber({ eventIndex, totalEvents, chapterOffsets, onScrub }: Scrubber
 
 interface HudProps {
   events: TraceEvent[];
+  /** When true the HUD renders but is invisible (title card is on top). */
+  hidden?: boolean;
+  /** Called once when the playback state machine reaches "done". */
+  onDone?: () => void;
 }
 
-export function Hud({ events }: HudProps) {
+export function Hud({ events, hidden = false, onDone }: HudProps) {
   const [state, dispatch] = usePlayback(events);
   const config = buildConfig(events);
+
+  // Notify parent when we reach done — fire once via a ref guard
+  const doneNotified = useRef(false);
+  useEffect(() => {
+    if (state.status === "done" && !doneNotified.current) {
+      doneNotified.current = true;
+      onDone?.();
+    }
+    if (state.status !== "done") doneNotified.current = false;
+  }, [state.status, onDone]);
 
   const isPlaying = state.status === "playing";
   const isDone = state.status === "done";
@@ -124,7 +138,10 @@ export function Hud({ events }: HudProps) {
   const currentEvent = events[state.eventIndex];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur border-t border-gray-800 px-4 py-3 flex flex-col gap-3">
+    <div
+      className={`fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur border-t border-gray-800 px-4 py-3 flex flex-col gap-3${hidden ? " invisible" : ""}`}
+      aria-hidden={hidden}
+    >
       {/* Scrubber */}
       <Scrubber
         eventIndex={state.eventIndex}
