@@ -1,5 +1,6 @@
 from packages.shared.models import (
     ApplySplitRequest,
+    FeatureHistogramShares,
     FindSplitRequest,
     GradientShareRequest,
     GradientShareResponse,
@@ -13,6 +14,7 @@ from packages.shared.models import (
 
 __all__ = [
     "ApplySplitRequest",
+    "FeatureHistogramShares",
     "FindSplitRequest",
     "GradientShareRequest",
     "GradientShareResponse",

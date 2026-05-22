@@ -43,16 +43,26 @@ class GradientShareRequest(BaseModel):
 
 
 class GradientShareResponse(BaseModel):
-    """Guest → Coordinator: share_A to relay to the host."""
+    """Guest → Coordinator: share_A for both g and h to relay to the host."""
 
-    share_a: Share
+    g_share_a: Share
+    h_share_a: Share
+
+
+class FeatureHistogramShares(BaseModel):
+    """A pair of histogram shares (g and h) for one feature."""
+
+    g_share: Share
+    h_share: Share
 
 
 class FindSplitRequest(BaseModel):
     """Coordinator → Guest: host histogram shares to reconstruct and find best split."""
 
     node_id: str
-    host_histogram_shares: dict[str, Share]  # keyed by feature_id
+    host_feature_shares: dict[str, FeatureHistogramShares]  # keyed by feature_id
+    bucket_indices_per_feature: dict[str, list[int]]
+    n_buckets: int
 
 
 class SplitDecision(BaseModel):
@@ -71,13 +81,16 @@ class HistogramShareRequest(BaseModel):
 
     node_id: str
     sample_indices: list[int]
-    share_a: Share
+    g_share_a: Share
+    h_share_a: Share
 
 
 class HistogramShareResponse(BaseModel):
     """Host → Coordinator: cumulative histogram shares per feature (length B each)."""
 
-    histogram_shares: dict[str, Share]  # keyed by feature_id
+    feature_shares: dict[str, FeatureHistogramShares]  # keyed by feature_id
+    bucket_indices_per_feature: dict[str, list[int]]  # keyed by feature_id; relayed to guest
+    n_buckets: int
 
 
 # --- Shared endpoints ---

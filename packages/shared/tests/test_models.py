@@ -4,6 +4,7 @@ import numpy as np
 
 from packages.shared import (
     ApplySplitRequest,
+    FeatureHistogramShares,
     FindSplitRequest,
     GradientShareRequest,
     GradientShareResponse,
@@ -65,32 +66,52 @@ class TestRequestResponseModels:
 
     def test_gradient_share_response_json(self) -> None:
         share = Share.from_array(make_int64_array())
-        resp = GradientShareResponse(share_a=share)
+        resp = GradientShareResponse(g_share_a=share, h_share_a=share)
         recovered = GradientShareResponse.model_validate_json(resp.model_dump_json())
         np.testing.assert_array_equal(
-            share.to_array(), recovered.share_a.to_array()
+            share.to_array(), recovered.g_share_a.to_array()
+        )
+        np.testing.assert_array_equal(
+            share.to_array(), recovered.h_share_a.to_array()
         )
 
     def test_histogram_share_request_json(self) -> None:
         share = Share.from_array(make_int64_array())
-        req = HistogramShareRequest(node_id="node_0", sample_indices=[0, 1], share_a=share)
+        req = HistogramShareRequest(
+            node_id="node_0",
+            sample_indices=[0, 1],
+            g_share_a=share,
+            h_share_a=share,
+        )
         recovered = HistogramShareRequest.model_validate_json(req.model_dump_json())
-        np.testing.assert_array_equal(share.to_array(), recovered.share_a.to_array())
+        np.testing.assert_array_equal(share.to_array(), recovered.g_share_a.to_array())
 
     def test_histogram_share_response_json(self) -> None:
         share = Share.from_array(make_int64_array())
-        resp = HistogramShareResponse(histogram_shares={"feature_0": share})
+        feat_shares = FeatureHistogramShares(g_share=share, h_share=share)
+        resp = HistogramShareResponse(
+            feature_shares={"feature_0": feat_shares},
+            bucket_indices_per_feature={"feature_0": [0, 1, 2, 3, 4, 5, 6, 7]},
+            n_buckets=8,
+        )
         recovered = HistogramShareResponse.model_validate_json(resp.model_dump_json())
         np.testing.assert_array_equal(
-            share.to_array(), recovered.histogram_shares["feature_0"].to_array()
+            share.to_array(), recovered.feature_shares["feature_0"].g_share.to_array()
         )
 
     def test_find_split_request_json(self) -> None:
         share = Share.from_array(make_int64_array())
-        req = FindSplitRequest(node_id="node_0", host_histogram_shares={"f0": share})
+        feat_shares = FeatureHistogramShares(g_share=share, h_share=share)
+        req = FindSplitRequest(
+            node_id="node_0",
+            host_feature_shares={"f0": feat_shares},
+            bucket_indices_per_feature={"f0": [0, 1, 2, 3, 4, 5, 6, 7]},
+            n_buckets=8,
+        )
         recovered = FindSplitRequest.model_validate_json(req.model_dump_json())
         np.testing.assert_array_equal(
-            share.to_array(), recovered.host_histogram_shares["f0"].to_array()
+            share.to_array(),
+            recovered.host_feature_shares["f0"].g_share.to_array(),
         )
 
     def test_split_decision_json(self) -> None:
