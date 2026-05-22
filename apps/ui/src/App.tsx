@@ -9,6 +9,7 @@ import { MessageWire } from "./components/message-wire/MessageWire";
 import { ReconstructionBeat } from "./components/reconstruction-beat/ReconstructionBeat";
 import { Filmstrip } from "./components/filmstrip/Filmstrip";
 import { AucChart } from "./components/auc-chart/AucChart";
+import { FinalRevealFrame } from "./components/final-reveal/FinalRevealFrame";
 import { usePlayback } from "./lib/usePlayback";
 import { buildConfig } from "./lib/playback";
 import { deriveRunMeta } from "./lib/runMeta";
@@ -78,6 +79,25 @@ function PlayerApp({ events }: PlayerAppProps) {
   const act2StartIndex =
     config.chapterOffsets.find((c) => c.name === "act2_start")?.eventIndex ?? -1;
   const isAct2 = act2StartIndex >= 0 && playState.eventIndex >= act2StartIndex;
+  const isFinalPhase =
+    playState.status === "final-reveal-hold" || playState.status === "done";
+
+  const handleReplay = () => {
+    setAppStatus("cold-open");
+    playDispatch({ type: "restart" });
+  };
+
+  // R key during final phase also resets to cold-open
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if ((e.key === "r" || e.key === "R") && isFinalPhase) {
+        setAppStatus("cold-open");
+        // usePlayback's own key handler dispatches "restart"
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isFinalPhase]);
 
   // Transition app → done when playback finishes
   const doneNotified = useRef(false);
@@ -113,8 +133,8 @@ function PlayerApp({ events }: PlayerAppProps) {
       {/* Title card — visible until first play */}
       {isColdOpen && <TitleCard runMeta={runMeta} onPlay={onPlay} />}
 
-      {/* Main content — shown after cold-open */}
-      {!isColdOpen && (
+      {/* Main content — shown after cold-open and before final phase */}
+      {!isColdOpen && !isFinalPhase && (
         <div className="p-6 pb-44">
           <header className="mb-4">
             <h2 className="text-lg font-bold text-white">
@@ -126,21 +146,6 @@ function PlayerApp({ events }: PlayerAppProps) {
               <span className="text-gray-400">{runMeta.runId}</span>
             </p>
           </header>
-
-          {appStatus === "done" && (
-            <div className="mb-4 flex items-center gap-3">
-              <span className="text-green-400 text-sm">Replay complete</span>
-              <button
-                className="text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
-                onClick={() => {
-                  setAppStatus("playing");
-                  playDispatch({ type: "restart" });
-                }}
-              >
-                ↻ Replay
-              </button>
-            </div>
-          )}
 
           {/* Three-column layout: guest | centre | host */}
           <div className="relative grid grid-cols-[220px_1fr_220px] gap-4 items-start">
@@ -234,7 +239,7 @@ function PlayerApp({ events }: PlayerAppProps) {
         events={events}
         state={playState}
         dispatch={playDispatch}
-        hidden={isColdOpen}
+        hidden={isColdOpen || isFinalPhase}
       />
 
       {/* Reconstruction beat overlay — mounts on reconstruction-hold */}
@@ -243,6 +248,17 @@ function PlayerApp({ events }: PlayerAppProps) {
           <ReconstructionBeat
             events={events}
             holdMsRemaining={playState.holdMsRemaining}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Final reveal — replaces normal content and HUD */}
+      <AnimatePresence>
+        {isFinalPhase && (
+          <FinalRevealFrame
+            events={events}
+            isDone={playState.status === "done"}
+            onReplay={handleReplay}
           />
         )}
       </AnimatePresence>
