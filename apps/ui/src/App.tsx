@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { TitleCard } from "./components/title-card/TitleCard";
 import { Hud } from "./components/hud/Hud";
 import { TreeView } from "./components/tree-view/TreeView";
+import { GuestPanel } from "./components/guest-panel/GuestPanel";
+import { HostPanel } from "./components/host-panel/HostPanel";
 import { usePlayback } from "./lib/usePlayback";
 import { deriveRunMeta } from "./lib/runMeta";
 import { parseTrace, type TraceEvent } from "./lib/trace-reader";
@@ -85,13 +87,19 @@ function PlayerApp({ events }: PlayerAppProps) {
             </div>
           )}
 
-          {/* Tree 0 visual — grows node by node during act 1 */}
-          <section className="mb-6">
-            <h3 className="text-xs text-gray-500 mb-2 uppercase tracking-wider">
-              Tree 0 structure
-            </h3>
-            <TreeView events={events} eventIndex={playState.eventIndex} />
-          </section>
+          {/* Three-column layout: guest | tree | host */}
+          <div className="grid grid-cols-[220px_1fr_220px] gap-4 items-start">
+            <GuestPanel events={events} eventIndex={playState.eventIndex} />
+
+            <section>
+              <h3 className="text-xs text-gray-500 mb-2 uppercase tracking-wider">
+                Tree 0
+              </h3>
+              <TreeView events={events} eventIndex={playState.eventIndex} />
+            </section>
+
+            <HostPanel events={events} eventIndex={playState.eventIndex} />
+          </div>
         </div>
       )}
 
