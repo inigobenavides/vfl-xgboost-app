@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Storybook build output
+storybook-static/
+
+# Playwright test output (not baselines)
+src/tests/output/

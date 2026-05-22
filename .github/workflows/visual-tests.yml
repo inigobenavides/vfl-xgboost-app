@@ -1,0 +1,46 @@
+name: Visual Regression Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/ui/**"
+  pull_request:
+    paths:
+      - "apps/ui/**"
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/ui
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build Storybook
+        run: npm run build-storybook
+
+      - name: Run visual tests
+        run: npm run test:visual
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-output
+          path: apps/ui/src/tests/output/
+          retention-days: 7

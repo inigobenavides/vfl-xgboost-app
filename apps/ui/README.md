@@ -1,73 +1,63 @@
-# React + TypeScript + Vite
+# VFL XGBoost — UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Replay visualizer for the vertical federated XGBoost protocol trace. Animates the training loop step-by-step: split-finding, gradient sharing, tree growth, reconstruction beat, and final reveal.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev          # Vite dev server on :5173
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Storybook
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Component stories are written in CSF3 format and driven by the canonical UCI Adult trace (`traces/uci-adult-canonical.jsonl`).
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run storybook          # dev server on :6006
+npm run build-storybook    # build static bundle → storybook-static/
 ```
+
+## Testing
+
+### Unit tests (Vitest)
+
+```bash
+npm test               # run once
+npm run test:watch     # watch mode
+```
+
+### Visual regression (Playwright)
+
+Visual tests capture screenshots of each Storybook story and compare against committed baselines.
+
+```bash
+# Requires a Storybook static build (run build-storybook first)
+npm run test:visual
+
+# Update baselines after intentional UI changes
+npm run test:visual -- --update-snapshots
+```
+
+Baselines live in `src/tests/snapshots/`. The CI workflow (`.github/workflows/visual-tests.yml`) runs these on every push that touches `apps/ui/`.
+
+## Component overview
+
+| Component | Description |
+|---|---|
+| `TitleCard` | Cold-open title splash |
+| `Hud` | Playback controls + chapter indicator |
+| `TreeView` | Live animated tree for the current tree under construction |
+| `GuestPanel` | Guest party feature list + gradient metadata |
+| `HostPanel` | Host party feature list + gain curve |
+| `MessageWire` | Animated share pills flying between coordinator and parties |
+| `ReconstructionBeat` | Full-screen overlay during the reconstruction hold |
+| `Filmstrip` | Thumbnail strip of completed trees |
+| `AucChart` | Step-driven AUC curve |
+| `FinalRevealFrame` | Summary screen with full tree grid + replay button |
+
+## Trace format
+
+The app reads a JSONL protocol trace from `traces/uci-adult-canonical.jsonl`. Each line is a typed event; the full schema is defined in `src/lib/trace-reader.ts`.
+
+Key event types: `chapter_marker`, `node_expanded`, `protocol_message`, `auc_delta`, `reconstruction_aggregate`, `privacy_check`, `tree_start`.
