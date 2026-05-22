@@ -37,3 +37,4 @@ typeCheckingMode = "strict"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["packages", "tests"]
+markers = ["slow: marks tests that download data and train a model"]
