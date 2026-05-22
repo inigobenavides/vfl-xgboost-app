@@ -16,8 +16,8 @@ from packages.shared.models import (
     HistogramShareRequest,
     HistogramShareResponse,
     PrivacyCheck,
+    ProtocolMessageEvent,
     SplitDecision,
-    TraceEntry,
     UpdatePredictionsRequest,
 )
 
@@ -74,8 +74,8 @@ class Coordinator:
         to_party: str,
         payload_type: str,
         payload_shape: tuple[int, ...],
-    ) -> TraceEntry:
-        return TraceEntry(
+    ) -> ProtocolMessageEvent:
+        return ProtocolMessageEvent(
             step=step,
             node_id=node_id,
             from_party=from_party,

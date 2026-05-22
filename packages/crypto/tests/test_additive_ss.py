@@ -16,11 +16,11 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 
-from packages.crypto.additive_ss import (  # type: ignore[reportPrivateUsage]
+from packages.crypto.additive_ss import (
     SCALE,
     AdditiveSSProtocol,
     P,
-    _addmod,
+    _addmod,  # pyright: ignore[reportPrivateUsage]
 )
 
 # ---------------------------------------------------------------------------
@@ -190,6 +190,9 @@ def test_share_a_independent_of_x(
     a2, b2 = p2.share(x2)
     # Same seed + same shape → identical share_a regardless of x
     np.testing.assert_array_equal(a1, a2)
-    # share_b absorbs all information about x; it differs when x differs
-    if not np.allclose(x1, x2):
+    # share_b absorbs all information about x; it differs when encoded integers differ.
+    # Inputs that round to the same fixed-point integer are indistinguishable.
+    enc1 = (np.round(x1 * SCALE).astype(np.int64)) % P
+    enc2 = (np.round(x2 * SCALE).astype(np.int64)) % P
+    if not np.array_equal(enc1, enc2):
         assert not np.array_equal(b1, b2)

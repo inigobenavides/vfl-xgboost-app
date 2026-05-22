@@ -1,24 +1,27 @@
-"""Trace writer — appends TraceEntry objects to a JSON-lines file."""
+"""Trace writer — appends TraceEvent records to a JSON-lines file."""
 
 from __future__ import annotations
 
 import io
 from pathlib import Path
 from types import TracebackType
+from typing import Self
 
-from packages.shared.models import TraceEntry
+from packages.shared.models import TraceEvent
 
 
 class TraceWriter:
-    """Append-only writer for protocol trace entries.
+    """Append-only writer for trace events.
 
-    Each entry is serialised as a single JSON line (newline-delimited JSON)
-    so the file grows incrementally without buffering the entire array in memory.
+    Accepts any variant of the :data:`TraceEvent` discriminated union — protocol
+    messages, tree-level events, narrative chapter markers, etc. Each event is
+    serialised as a single JSON line (newline-delimited JSON) so the file grows
+    incrementally without buffering the entire array in memory.
 
     Usage::
 
         with TraceWriter(trace_dir / "run_id.json") as tw:
-            tw.append(entry)
+            tw.append(event)
     """
 
     def __init__(self, path: Path) -> None:
@@ -39,10 +42,10 @@ class TraceWriter:
     # Public API
     # ------------------------------------------------------------------
 
-    def append(self, entry: TraceEntry) -> None:
-        """Serialise *entry* and append it as a JSON line."""
+    def append(self, event: TraceEvent) -> None:
+        """Serialise *event* and append it as a JSON line."""
         f = self._ensure_open()
-        f.write(entry.model_dump_json())
+        f.write(event.model_dump_json())
         f.write("\n")
         f.flush()
 
@@ -56,7 +59,7 @@ class TraceWriter:
     # Context-manager support
     # ------------------------------------------------------------------
 
-    def __enter__(self) -> TraceWriter:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(

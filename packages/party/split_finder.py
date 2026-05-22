@@ -10,11 +10,20 @@ Two public functions:
   histogram aggregation, reconstruction, and then delegates the scan to
   ``scan_best_split``.  Used by ``fxgb/demo.py`` (in-process simulation).
 
-Both share the same gain formula and h≤0 guard so there is exactly one
-source of truth for the split-finding math.
+For trace-emission use cases, ``find_best_split_with_aggregates`` returns the
+reconstructed cumulative histograms alongside the decision so callers can emit
+``GainCurveEvent`` / ``ReconstructionAggregateEvent`` records without
+re-running the protocol. ``compute_gain_curve`` derives the per-feature gain
+curve from the reconstructed histograms.
+
+Both ``find_best_split`` and ``find_best_split_with_aggregates`` share the same
+gain formula and h≤0 guard so there is exactly one source of truth for the
+split-finding math.
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
@@ -22,6 +31,20 @@ import numpy.typing as npt
 from packages.crypto.additive_ss import AdditiveSSProtocol
 from packages.party.common.binning import assign_bins
 from packages.shared.models import SplitDecision
+
+
+@dataclass(frozen=True)
+class SplitFinderAggregates:
+    """Reconstructed cumulative histograms produced during split-finding.
+
+    ``g_hists[feature_id][k]`` is the cumulative sum of reconstructed gradients
+    for samples in bins 0..k. Same shape for ``h_hists``. These are the values
+    a guest would see *after* the secret-sharing reconstruction step — they're
+    aggregate, not per-sample, so the privacy invariant still holds.
+    """
+
+    g_hists: dict[str, npt.NDArray[np.float64]]
+    h_hists: dict[str, npt.NDArray[np.float64]]
 
 
 def scan_best_split(
@@ -88,6 +111,86 @@ def scan_best_split(
     )
 
 
+def compute_gain_curve(
+    g_hists: dict[str, npt.NDArray[np.float64]],
+    h_hists: dict[str, npt.NDArray[np.float64]],
+    n_bins: int,
+    lambda_reg: float,
+) -> dict[str, list[tuple[int, float]]]:
+    """Compute the per-feature ``(threshold_bin, gain)`` curve from cumulative histograms.
+
+    Returns a mapping from ``feature_id`` to a list of valid ``(threshold_bin, gain)``
+    pairs. Candidates with ``h_left <= 0`` or ``h_right <= 0`` are skipped, matching
+    :func:`scan_best_split`'s guard.
+    """
+    curves: dict[str, list[tuple[int, float]]] = {}
+    for feature_id, g_hist in g_hists.items():
+        h_hist = h_hists[feature_id]
+        g_total = float(g_hist[-1])
+        h_total = float(h_hist[-1])
+
+        feature_curve: list[tuple[int, float]] = []
+        for k in range(n_bins - 1):
+            g_left = float(g_hist[k])
+            h_left = float(h_hist[k])
+            g_right = g_total - g_left
+            h_right = h_total - h_left
+
+            if h_left <= 0.0 or h_right <= 0.0:
+                continue
+
+            gain = (
+                g_left**2 / (h_left + lambda_reg)
+                + g_right**2 / (h_right + lambda_reg)
+                - g_total**2 / (h_total + lambda_reg)
+            )
+            feature_curve.append((k, gain))
+        curves[feature_id] = feature_curve
+    return curves
+
+
+def find_best_split_with_aggregates(
+    proto: AdditiveSSProtocol,
+    g: npt.NDArray[np.float64],
+    h: npt.NDArray[np.float64],
+    sample_indices: npt.NDArray[np.int64],
+    features: npt.NDArray[np.float64],
+    feature_names: list[str],
+    bin_boundaries: dict[str, npt.NDArray[np.float64]],
+    n_bins: int,
+    lambda_reg: float,
+) -> tuple[SplitDecision | None, SplitFinderAggregates]:
+    """Same as :func:`find_best_split`, but also returns the reconstructed cumulative
+    histograms.
+
+    Callers that need to emit a ``GainCurveEvent`` or ``ReconstructionAggregateEvent``
+    for a node use this entry point. Other callers use :func:`find_best_split`.
+    """
+    g_i = g[sample_indices]
+    h_i = h[sample_indices]
+
+    g_share_a, g_share_b = proto.share(g_i)
+    h_share_a, h_share_b = proto.share(h_i)
+
+    g_hists: dict[str, npt.NDArray[np.float64]] = {}
+    h_hists: dict[str, npt.NDArray[np.float64]] = {}
+
+    for col_idx, feat_name in enumerate(feature_names):
+        col: npt.NDArray[np.float64] = features[sample_indices, col_idx]
+        bucket_indices = assign_bins(col, bin_boundaries[feat_name])
+
+        g_hist_a = proto.aggregate(g_share_a, bucket_indices, n_bins)
+        h_hist_a = proto.aggregate(h_share_a, bucket_indices, n_bins)
+        g_hist_b = proto.aggregate(g_share_b, bucket_indices, n_bins)
+        h_hist_b = proto.aggregate(h_share_b, bucket_indices, n_bins)
+
+        g_hists[feat_name] = proto.reconstruct(g_hist_a, g_hist_b)
+        h_hists[feat_name] = proto.reconstruct(h_hist_a, h_hist_b)
+
+    decision = scan_best_split(g_hists, h_hists, n_bins, lambda_reg)
+    return decision, SplitFinderAggregates(g_hists=g_hists, h_hists=h_hists)
+
+
 def find_best_split(
     proto: AdditiveSSProtocol,
     g: npt.NDArray[np.float64],
@@ -101,58 +204,19 @@ def find_best_split(
 ) -> SplitDecision | None:
     """Secret-share gradients, aggregate histograms, and find the best split.
 
-    This is the in-process (no-HTTP) version used by ``fxgb/demo.py``.  It
+    This is the in-process (no-HTTP) version used by ``fxgb/demo.py``. It
     simulates both the guest and host sides locally so that the federated
     protocol is exercised without network round-trips.
-
-    Parameters
-    ----------
-    proto:
-        The ``AdditiveSSProtocol`` instance to use for sharing and
-        reconstruction.
-    g:
-        Per-sample gradients for the *entire* dataset (shape ``(N,)``).
-    h:
-        Per-sample hessians for the *entire* dataset (shape ``(N,)``).
-    sample_indices:
-        Indices of samples that belong to the current tree node.
-    features:
-        Feature matrix of shape ``(N, len(feature_names))``.
-    feature_names:
-        Column names aligned with ``features``.
-    bin_boundaries:
-        Mapping from feature name to its quantile bin boundary array.
-    n_bins:
-        Number of histogram bins.
-    lambda_reg:
-        L2 regularisation term.
-
-    Returns
-    -------
-    ``SplitDecision`` or ``None`` (no positive-gain split).
     """
-    g_i = g[sample_indices]
-    h_i = h[sample_indices]
-
-    # Guest secret-shares the node's gradients/hessians.
-    g_share_a, g_share_b = proto.share(g_i)
-    h_share_a, h_share_b = proto.share(h_i)
-
-    g_hists: dict[str, npt.NDArray[np.float64]] = {}
-    h_hists: dict[str, npt.NDArray[np.float64]] = {}
-
-    for col_idx, feat_name in enumerate(feature_names):
-        col: npt.NDArray[np.float64] = features[sample_indices, col_idx]
-        bucket_indices = assign_bins(col, bin_boundaries[feat_name])
-
-        # Host aggregates share_a; guest aggregates share_b.
-        g_hist_a = proto.aggregate(g_share_a, bucket_indices, n_bins)
-        h_hist_a = proto.aggregate(h_share_a, bucket_indices, n_bins)
-        g_hist_b = proto.aggregate(g_share_b, bucket_indices, n_bins)
-        h_hist_b = proto.aggregate(h_share_b, bucket_indices, n_bins)
-
-        # Guest reconstructs the full cumulative histogram.
-        g_hists[feat_name] = proto.reconstruct(g_hist_a, g_hist_b)
-        h_hists[feat_name] = proto.reconstruct(h_hist_a, h_hist_b)
-
-    return scan_best_split(g_hists, h_hists, n_bins, lambda_reg)
+    decision, _ = find_best_split_with_aggregates(
+        proto=proto,
+        g=g,
+        h=h,
+        sample_indices=sample_indices,
+        features=features,
+        feature_names=feature_names,
+        bin_boundaries=bin_boundaries,
+        n_bins=n_bins,
+        lambda_reg=lambda_reg,
+    )
+    return decision

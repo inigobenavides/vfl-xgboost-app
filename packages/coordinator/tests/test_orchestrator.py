@@ -19,9 +19,9 @@ from packages.shared.models import (
     FeatureHistogramShares,
     GradientShareResponse,
     HistogramShareResponse,
+    ProtocolMessageEvent,
     Share,
     SplitDecision,
-    TraceEntry,
 )
 
 # ---------------------------------------------------------------------------
@@ -178,7 +178,7 @@ class TestCoordinatorRunNode:
         lines = [ln for ln in trace_path.read_text().splitlines() if ln.strip()]
         entries: list[Any] = [json.loads(ln) for ln in lines]
         for i, raw in enumerate(entries):
-            entry = TraceEntry.model_validate(raw)
+            entry = ProtocolMessageEvent.model_validate(raw)
             assert entry.privacy_check.no_raw_gradients is True, (
                 f"Entry {i} failed privacy_check.no_raw_gradients"
             )
@@ -191,7 +191,7 @@ class TestCoordinatorRunNode:
     ) -> None:
         _, trace_path = run_result
         lines = [ln for ln in trace_path.read_text().splitlines() if ln.strip()]
-        steps = [TraceEntry.model_validate(json.loads(ln)).step for ln in lines]
+        steps = [ProtocolMessageEvent.model_validate(json.loads(ln)).step for ln in lines]
         assert steps == [1, 2, 3, 4], f"Expected steps [1,2,3,4], got {steps}"
 
     async def test_trace_entries_have_correct_node_id(
@@ -200,5 +200,5 @@ class TestCoordinatorRunNode:
         _, trace_path = run_result
         lines = [ln for ln in trace_path.read_text().splitlines() if ln.strip()]
         for ln in lines:
-            entry = TraceEntry.model_validate(json.loads(ln))
+            entry = ProtocolMessageEvent.model_validate(json.loads(ln))
             assert entry.node_id == "node_0"

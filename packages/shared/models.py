@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime
+from typing import Annotated, Literal
 
 import numpy as np
 import numpy.typing as npt
-from pydantic import Base64Bytes, BaseModel, ConfigDict
+from pydantic import Base64Bytes, BaseModel, ConfigDict, Field, TypeAdapter
 
 
 class Share(BaseModel):
@@ -116,7 +117,11 @@ class ApplySplitRequest(BaseModel):
     threshold: float
 
 
-# --- Protocol trace ---
+# --- Protocol trace events ---
+
+# Every event in a trace JSONL file is one variant of TraceEvent, distinguished by
+# its "type" discriminator field. The trace file is consumed by the UI (slice #16
+# and onward) as a discriminated-union stream.
 
 
 class PrivacyCheck(BaseModel):
@@ -126,9 +131,14 @@ class PrivacyCheck(BaseModel):
     no_raw_features: bool = True
 
 
-class TraceEntry(BaseModel):
-    """One protocol step recorded by the coordinator."""
+class ProtocolMessageEvent(BaseModel):
+    """One protocol-round-trip message — what the coordinator orchestrator records.
 
+    Replaces the earlier TraceEntry type. Carries the same fields plus a `type`
+    discriminator so it can sit in the trace JSONL alongside higher-level events.
+    """
+
+    type: Literal["protocol_message"] = "protocol_message"
     step: int
     node_id: str
     from_party: str
@@ -137,3 +147,102 @@ class TraceEntry(BaseModel):
     payload_shape: tuple[int, ...]
     timestamp: datetime
     privacy_check: PrivacyCheck
+
+
+class TreeStartEvent(BaseModel):
+    """Marks the start of training a single tree in the boosting loop."""
+
+    type: Literal["tree_start"] = "tree_start"
+    tree_index: int
+    n_samples: int
+    timestamp: datetime
+
+
+class NodeExpandedEvent(BaseModel):
+    """A tree node has been finalised — either an internal split or a leaf."""
+
+    type: Literal["node_expanded"] = "node_expanded"
+    tree_index: int
+    node_id: str
+    parent_id: str | None
+    depth: int
+    n_samples: int
+    samples_l: int
+    samples_r: int
+    feature_id: str | None
+    threshold_bin: int | None
+    gain: float | None
+    leaf_weight: float | None
+    is_leaf: bool
+    timestamp: datetime
+
+
+class GainCurveEvent(BaseModel):
+    """Per-feature gain over candidate thresholds — emitted for the canonical node only."""
+
+    type: Literal["gain_curve"] = "gain_curve"
+    tree_index: int
+    node_id: str
+    # per_feature[feature_id] = list of (threshold_bin, gain) pairs, valid candidates only.
+    per_feature: dict[str, list[tuple[int, float]]]
+    timestamp: datetime
+
+
+class ReconstructionAggregateEvent(BaseModel):
+    """G and H per bucket for the winning feature at the canonical reconstruction node.
+
+    The UI drives its "two opaque pills fuse into a clean histogram" beat off this event.
+    Number of bars equals the number of histogram buckets — visibly an aggregate,
+    not a per-sample list.
+    """
+
+    type: Literal["reconstruction_aggregate"] = "reconstruction_aggregate"
+    tree_index: int
+    node_id: str
+    feature_id: str
+    g_per_bucket: list[float]
+    h_per_bucket: list[float]
+    timestamp: datetime
+
+
+class AucDeltaEvent(BaseModel):
+    """Test-set AUC measured after one tree has been added to the ensemble."""
+
+    type: Literal["auc_delta"] = "auc_delta"
+    tree_index: int
+    auc: float
+    timestamp: datetime
+
+
+type ChapterName = Literal["act1_start", "reconstruction", "act2_start", "final"]
+
+
+class ChapterMarkerEvent(BaseModel):
+    """A demo-narrative chapter boundary stamped into the trace by the bake script.
+
+    The four chapters drive the UI HUD's chapter ticks: Act 1 start, the reconstruction
+    beat, Act 2 start, and the final-reveal hold.
+    """
+
+    type: Literal["chapter_marker"] = "chapter_marker"
+    chapter: ChapterName
+    timestamp: datetime
+
+
+type TraceEvent = (
+    ProtocolMessageEvent
+    | TreeStartEvent
+    | NodeExpandedEvent
+    | GainCurveEvent
+    | ReconstructionAggregateEvent
+    | AucDeltaEvent
+    | ChapterMarkerEvent
+)
+
+
+# TypeAdapter for parsing trace JSONL — dispatches to the right variant by the
+# "type" discriminator field. Importers use:
+#   event = TraceEventAdapter.validate_json(line)
+TraceEventAdapter: TypeAdapter[TraceEvent] = TypeAdapter(
+    Annotated[TraceEvent, Field(discriminator="type")]
+)

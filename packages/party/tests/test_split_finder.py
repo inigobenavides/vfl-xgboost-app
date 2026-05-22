@@ -18,20 +18,12 @@ Three tests:
 from __future__ import annotations
 
 import numpy as np
-import numpy.typing as npt
 
 from packages.party.split_finder import scan_best_split
 
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
-
-
-def _make_cumulative(
-    values: list[float],
-) -> npt.NDArray[np.float64]:
-    """Return a 1-D cumulative-sum array (same shape as values)."""
-    return np.cumsum(np.array(values, dtype=np.float64))
 
 
 # ---------------------------------------------------------------------------
