@@ -24,7 +24,7 @@ LABEL_COL: str = "class"
 _DEFAULT_CACHE = Path.home() / ".cache" / "fxgb"
 
 
-def _load_adult(data_home: Path) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.int32]]:
+def load_adult(data_home: Path) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.int32]]:
     """Fetch UCI Adult, preprocess, and return (features, labels) as numpy arrays.
 
     Isolates all untyped sklearn/pandas calls so pyright strict sees typed outputs.
@@ -65,7 +65,7 @@ def train_baseline(cache_dir: Path | None = None) -> float:
     data_home = cache_dir if cache_dir is not None else _DEFAULT_CACHE
     data_home.mkdir(parents=True, exist_ok=True)
 
-    features_np, labels_np = _load_adult(data_home)
+    features_np, labels_np = load_adult(data_home)
 
     # 4. 80/20 train/test split.
     split_result: Any = train_test_split(  # type: ignore[reportUnknownVariableType]

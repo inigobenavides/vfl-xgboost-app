@@ -149,4 +149,8 @@ def make_guest_router(
         _node_state.pop(req.node_id, None)
         return {}
 
+    @router.get("/health")
+    def health() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+        return {"status": "ok"}
+
     return router, _node_state

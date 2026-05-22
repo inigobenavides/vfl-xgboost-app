@@ -1,0 +1,65 @@
+version: "3.9"
+
+# Shared data volume so UCI Adult is only downloaded once.
+volumes:
+  fxgb-data:
+
+# ---------------------------------------------------------------------------
+# End-to-end smoke test:
+#   docker compose run --rm demo
+#
+# Manual exploration (HTTP services):
+#   docker compose up guest host
+# ---------------------------------------------------------------------------
+
+services:
+
+  # --------------------------------------------------------------------------
+  # demo: in-process VFL XGBoost — no HTTP, trains + prints AUC.
+  # Exit code 0 means AUC ≥ floor printed to stdout.
+  # --------------------------------------------------------------------------
+  demo:
+    build: .
+    command: ["uv", "run", "python", "-m", "fxgb.demo"]
+    volumes:
+      - fxgb-data:/data/fxgb
+    environment:
+      DATA_CACHE: /data/fxgb
+
+  # --------------------------------------------------------------------------
+  # guest: FastAPI service that holds training labels (port 8001)
+  # --------------------------------------------------------------------------
+  guest:
+    build: .
+    command: ["uv", "run", "python", "-m", "fxgb.guest_service"]
+    ports:
+      - "8001:8001"
+    volumes:
+      - fxgb-data:/data/fxgb
+    environment:
+      GUEST_PORT: "8001"
+      DATA_CACHE: /data/fxgb
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # host: FastAPI service that holds training features (port 8002)
+  # --------------------------------------------------------------------------
+  host:
+    build: .
+    command: ["uv", "run", "python", "-m", "fxgb.host_service"]
+    ports:
+      - "8002:8002"
+    volumes:
+      - fxgb-data:/data/fxgb
+    environment:
+      HOST_PORT: "8002"
+      DATA_CACHE: /data/fxgb
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

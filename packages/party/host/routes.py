@@ -75,6 +75,11 @@ def histogram_shares(
     )
 
 
+@router.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @router.post("/apply_split")
 def apply_split(
     body: ApplySplitRequest,
@@ -82,22 +87,23 @@ def apply_split(
 ) -> dict[str, object]:
     """Partition samples for left/right child based on the chosen split.
 
-    The host uses its own feature column to determine which samples go left
-    (feature value <= threshold) and which go right (feature value > threshold).
-    Partitions are stored in-memory keyed by node_id for downstream nodes.
+    body.threshold is the bin index (0..n_bins-1), not a raw feature value.
+    The host maps samples to bins and splits on bin index <= threshold.
     """
     state = _get_state(request)
     features: npt.NDArray[np.float64] = state["features"]
     feature_names: list[str] = state["feature_names"]
+    bin_boundaries: dict[str, npt.NDArray[np.float64]] = state["bin_boundaries"]
     node_partitions: dict[str, npt.NDArray[np.int64]] = state["node_partitions"]
 
-    # Resolve the column index for the split feature.
     col_idx = feature_names.index(body.feature_id)
+    threshold_bin = int(body.threshold)
 
     parent_indices = node_partitions.get(body.node_id, np.arange(features.shape[0], dtype=np.int64))
     col_values: npt.NDArray[np.float64] = features[parent_indices, col_idx]
+    bucket_indices = assign_bins(col_values, bin_boundaries[body.feature_id])
 
-    left_mask = col_values <= body.threshold
+    left_mask = bucket_indices <= threshold_bin
     left_indices: npt.NDArray[np.int64] = parent_indices[left_mask]
     right_indices: npt.NDArray[np.int64] = parent_indices[~left_mask]
 
