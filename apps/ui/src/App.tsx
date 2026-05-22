@@ -1,3 +1,4 @@
+import { AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { TitleCard } from "./components/title-card/TitleCard";
 import { Hud } from "./components/hud/Hud";
@@ -5,6 +6,7 @@ import { TreeView } from "./components/tree-view/TreeView";
 import { GuestPanel } from "./components/guest-panel/GuestPanel";
 import { HostPanel } from "./components/host-panel/HostPanel";
 import { MessageWire } from "./components/message-wire/MessageWire";
+import { ReconstructionBeat } from "./components/reconstruction-beat/ReconstructionBeat";
 import { usePlayback } from "./lib/usePlayback";
 import { deriveRunMeta } from "./lib/runMeta";
 import { parseTrace, type TraceEvent } from "./lib/trace-reader";
@@ -113,6 +115,16 @@ function PlayerApp({ events }: PlayerAppProps) {
         dispatch={playDispatch}
         hidden={isColdOpen}
       />
+
+      {/* Reconstruction beat overlay — mounts on reconstruction-hold */}
+      <AnimatePresence>
+        {playState.status === "reconstruction-hold" && (
+          <ReconstructionBeat
+            events={events}
+            holdMsRemaining={playState.holdMsRemaining}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
