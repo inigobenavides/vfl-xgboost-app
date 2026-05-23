@@ -77,10 +77,10 @@ function useHostState(events: TraceEvent[], eventIndex: number): HostState {
 function FeatureBar({ name, value }: { name: string; value: number }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] text-gray-400 w-24 truncate shrink-0 text-right font-mono">
+      <span className="text-[10px] text-mute-2 w-24 truncate shrink-0 text-right font-mono">
         {name}
       </span>
-      <div className="flex-1 h-3 bg-gray-800 rounded-sm overflow-hidden">
+      <div className="flex-1 h-3 bg-ink-3 rounded-sm overflow-hidden">
         <div
           className="h-full bg-host rounded-sm transition-all duration-500"
           style={{ width: `${value * 100}%` }}
@@ -94,9 +94,9 @@ function HistogramBars({ values, label }: { values: number[]; label: string }) {
   if (values.length === 0) {
     return (
       <div>
-        <p className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">{label}</p>
-        <div className="h-12 w-full rounded bg-gray-800 flex items-center justify-center">
-          <span className="text-[9px] text-gray-600">waiting…</span>
+        <p className="text-[10px] font-mono text-mute-1 mb-1 uppercase tracking-wider">{label}</p>
+        <div className="h-12 w-full rounded bg-ink-3 flex items-center justify-center">
+          <span className="text-[9px] font-mono text-mute-1">waiting…</span>
         </div>
       </div>
     );
@@ -104,7 +104,7 @@ function HistogramBars({ values, label }: { values: number[]; label: string }) {
   const barW = Math.max(3, Math.floor(200 / values.length));
   return (
     <div>
-      <p className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">
+      <p className="text-[10px] font-mono text-mute-1 mb-1 uppercase tracking-wider">
         {label}
       </p>
       <div className="flex items-end gap-px h-12 overflow-hidden w-full">
@@ -133,24 +133,24 @@ export function HostPanel({ events, eventIndex }: HostPanelProps) {
   const hs = useHostState(events, eventIndex);
 
   return (
-    <div className="flex flex-col gap-4 bg-gray-900 border border-gray-800 rounded-lg p-4 h-full">
+    <div className="flex flex-col gap-4 bg-ink-2 border border-line-1 rounded-card shadow-card p-4 h-full">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-host uppercase tracking-widest">Host</span>
-        <span className="text-[10px] text-gray-500">features only</span>
+        <span className="text-xs font-sans font-semibold text-host uppercase tracking-widest">Host</span>
+        <span className="text-[10px] font-mono text-mute-1">features only</span>
       </div>
 
       {/* Inbox lane — pills from coordinator land here */}
       <div>
-        <p className="text-[10px] text-wire/40 uppercase tracking-wider mb-1">← Inbox</p>
-        <div className="h-6 border border-dashed border-wire/20 rounded" />
+        <p className="text-[10px] font-mono text-wire/50 uppercase tracking-wider mb-1">← Inbox</p>
+        <div className="h-6 border border-dashed border-wire/25 rounded" />
       </div>
 
       {/* Feature usage heatmap */}
       <div className="flex-1 flex flex-col gap-1.5">
-        <p className="text-[10px] text-gray-500 uppercase tracking-wider">Feature splits</p>
+        <p className="text-[10px] font-mono text-mute-1 uppercase tracking-wider">Feature splits</p>
         {hs.featureUsage.length === 0 ? (
-          <div className="text-[9px] text-gray-600">waiting for splits…</div>
+          <div className="text-[9px] font-mono text-mute-1">waiting for splits…</div>
         ) : (
           hs.featureUsage.map((f) => (
             <FeatureBar key={f.name} name={f.name} value={f.normalisedCount} />

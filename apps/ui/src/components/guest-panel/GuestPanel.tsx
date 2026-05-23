@@ -7,6 +7,8 @@
 
 import { useMemo } from "react";
 import type { ReconstructionAggregateEvent, TraceEvent } from "../../lib/trace-reader";
+import { JargonTerm } from "../ui/Tooltip";
+import { TOOLTIPS } from "../../lib/tooltips";
 
 // ---------------------------------------------------------------------------
 // Data derivation
@@ -72,13 +74,27 @@ function useGuestState(events: TraceEvent[], eventIndex: number): GuestState {
 // ---------------------------------------------------------------------------
 
 /** Horizontal bar strip. Each value in [-1, 1]; positive = guest, negative = private. */
-function BarStrip({ values, label }: { values: number[]; label: string }) {
+function BarStrip({
+  values,
+  label,
+  tooltip,
+}: {
+  values: number[];
+  label: string;
+  tooltip?: string;
+}) {
+  const heading = (
+    <p className="text-[10px] font-mono text-mute-1 mb-1 uppercase tracking-wider">
+      {tooltip ? <JargonTerm content={tooltip}>{label}</JargonTerm> : label}
+    </p>
+  );
+
   if (values.length === 0) {
     return (
       <div>
-        <p className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">{label}</p>
-        <div className="h-5 w-full rounded bg-gray-800 flex items-center justify-center">
-          <span className="text-[9px] text-gray-600">waiting…</span>
+        {heading}
+        <div className="h-5 w-full rounded bg-ink-3 flex items-center justify-center">
+          <span className="text-[9px] font-mono text-mute-1">waiting…</span>
         </div>
       </div>
     );
@@ -88,7 +104,7 @@ function BarStrip({ values, label }: { values: number[]; label: string }) {
 
   return (
     <div>
-      <p className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">{label}</p>
+      {heading}
       <div className="flex items-end gap-px h-8 overflow-hidden rounded">
         {values.map((v, i) => {
           const h = Math.round(Math.abs(v) * 100);
@@ -111,12 +127,12 @@ function LabelStrip({ positiveRatio }: { positiveRatio: number }) {
   const posH = Math.round(positiveRatio * 100);
   return (
     <div>
-      <p className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">Labels</p>
+      <p className="text-[10px] font-mono text-mute-1 mb-1 uppercase tracking-wider">Labels</p>
       <div className="flex h-20 w-8 flex-col rounded overflow-hidden">
         <div className="bg-guest" style={{ flex: posH }} />
-        <div className="bg-gray-700" style={{ flex: 100 - posH }} />
+        <div className="bg-line-2" style={{ flex: 100 - posH }} />
       </div>
-      <p className="text-[9px] text-gray-500 mt-1">
+      <p className="text-[9px] font-mono text-mute-1 mt-1">
         {Math.round(positiveRatio * 100)}% pos
       </p>
     </div>
@@ -136,12 +152,12 @@ export function GuestPanel({ events, eventIndex }: GuestPanelProps) {
   const gs = useGuestState(events, eventIndex);
 
   return (
-    <div className="flex flex-col gap-4 bg-gray-900 border border-gray-800 rounded-lg p-4 h-full">
+    <div className="flex flex-col gap-4 bg-ink-2 border border-line-1 rounded-card shadow-card p-4 h-full">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-guest uppercase tracking-widest">Guest</span>
+        <span className="text-xs font-sans font-semibold text-guest uppercase tracking-widest">Guest</span>
         {gs.nSamples !== null && (
-          <span className="text-[10px] text-gray-500">{gs.nSamples} samples</span>
+          <span className="text-[10px] font-mono text-mute-1">{gs.nSamples} samples</span>
         )}
       </div>
 
@@ -149,15 +165,15 @@ export function GuestPanel({ events, eventIndex }: GuestPanelProps) {
       <div className="flex gap-3 items-start">
         <LabelStrip positiveRatio={gs.positiveRatio} />
         <div className="flex-1 min-w-0 flex flex-col gap-3">
-          <BarStrip values={gs.gradients} label="Gradients (g)" />
-          <BarStrip values={gs.hessians} label="Hessians (h)" />
+          <BarStrip values={gs.gradients} label="Gradients (g)" tooltip={TOOLTIPS.gradients} />
+          <BarStrip values={gs.hessians} label="Hessians (h)" tooltip={TOOLTIPS.hessians} />
         </div>
       </div>
 
       {/* Outbox lane — pills originate here and fly toward coordinator */}
       <div className="mt-auto">
-        <p className="text-[10px] text-wire/40 uppercase tracking-wider mb-1">Outbox →</p>
-        <div className="h-6 border border-dashed border-wire/20 rounded" />
+        <p className="text-[10px] font-mono text-wire/50 uppercase tracking-wider mb-1">Outbox →</p>
+        <div className="h-6 border border-dashed border-wire/25 rounded" />
       </div>
     </div>
   );

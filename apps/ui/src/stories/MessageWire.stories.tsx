@@ -6,7 +6,7 @@ const meta = {
   component: MessageWire,
   decorators: [
     (Story) => (
-      <div className="p-4 bg-gray-950" style={{ width: 240, position: "relative", height: 120 }}>
+      <div className="p-4 bg-ink-0" style={{ width: 720, position: "relative", height: 120 }}>
         <Story />
       </div>
     ),

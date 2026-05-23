@@ -1,9 +1,10 @@
 /**
  * ReconstructionBeat — the reconstruction-hold centrepiece animation.
  *
- * Two opaque share-pills converge from opposite sides, fuse, then reveal
- * the G/H per-bucket histogram from the ReconstructionAggregateEvent.
- * Driven by holdMsRemaining (decrements with RAF ticks → pausing freezes it).
+ * Two data-packet cards (matching MessageWire's pill style) converge from
+ * opposite sides, fuse, then reveal the G/H per-bucket histogram from the
+ * ReconstructionAggregateEvent. Driven by holdMsRemaining (decrements with
+ * RAF ticks → pausing freezes it).
  *
  * Mount/unmount is controlled by the parent (PlayerApp) via AnimatePresence.
  */
@@ -16,54 +17,70 @@ import type {
   ReconstructionAggregateEvent,
   TraceEvent,
 } from "../../lib/trace-reader";
+import { JargonTerm } from "../ui/Tooltip";
+import { TOOLTIPS } from "../../lib/tooltips";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const NOISE_ID = "rb-noise";
-
 // Phase boundaries (0 = beat starts, 1 = beat ends)
 const PILL_EXIT_THRESHOLD = 0.38;
-const HISTOGRAM_ENTER_THRESHOLD = 0.30;
+const HISTOGRAM_ENTER_THRESHOLD = 0.3;
 
 // ---------------------------------------------------------------------------
 // Data helpers
 // ---------------------------------------------------------------------------
 
-interface BeatData {
-  recon: ReconstructionAggregateEvent;
-  leftPill: string; // label for pill converging from the left (guest share)
-  rightPill: string; // label for pill converging from the right (host share)
+interface PillInfo {
+  /** Uppercase type label, e.g. "GRAD SHARE". */
+  type: string;
+  /** Shape including brackets, e.g. "[8×71]". */
+  shape: string;
+  /** Data type string, e.g. "int64". */
+  dtype: string;
 }
 
-function formatPillLabel(e: ProtocolMessageEvent): string {
-  const typeMap: Record<string, string> = {
-    GradientShareResponse: "grad_share",
-    HistogramShareResponse: "hist_share",
-    SplitDecision: "split_dec",
-    ApplySplitRequest: "apply_split",
-  };
-  const name = typeMap[e.payload_type] ?? e.payload_type.toLowerCase().slice(0, 12);
-  const shape = e.payload_shape.join("×");
-  return `${name}: int64[${shape}]`;
+interface BeatData {
+  recon: ReconstructionAggregateEvent;
+  leftPill: PillInfo; // pill converging from the guest side
+  rightPill: PillInfo; // pill converging from the host side
 }
+
+const TYPE_ABBREV: Record<string, string> = {
+  GradientShareResponse: "grad_share",
+  HistogramShareResponse: "hist_share",
+  SplitDecision: "split_dec",
+  ApplySplitRequest: "apply_split",
+};
+
+function parsePill(e: ProtocolMessageEvent): PillInfo {
+  const type = TYPE_ABBREV[e.payload_type] ?? e.payload_type.toLowerCase().slice(0, 12);
+  return {
+    type,
+    shape: `[${e.payload_shape.join("×")}]`,
+    dtype: "int64",
+  };
+}
+
+const FALLBACK_PILL = (type: string): PillInfo => ({
+  type,
+  shape: "[...]",
+  dtype: "int64",
+});
 
 function useBeatData(events: TraceEvent[]): BeatData | null {
   return useMemo(() => {
-    // Find reconstruction chapter_marker index
     const reconIdx = events.findIndex(
       (e) => e.type === "chapter_marker" && e.chapter === "reconstruction",
     );
     if (reconIdx < 0) return null;
 
-    // ReconstructionAggregateEvent is immediately after the chapter_marker
     const reconAgg = events
       .slice(reconIdx, reconIdx + 5)
       .find((e): e is ReconstructionAggregateEvent => e.type === "reconstruction_aggregate");
     if (!reconAgg) return null;
 
-    // Find the two most recent protocol_message events before the marker
     const prevMessages = events
       .slice(0, reconIdx)
       .filter((e): e is ProtocolMessageEvent => e.type === "protocol_message")
@@ -76,10 +93,11 @@ function useBeatData(events: TraceEvent[]): BeatData | null {
       .reverse()
       .find((e) => e.payload_type === "HistogramShareResponse");
 
-    const leftPill = gradMsg ? formatPillLabel(gradMsg) : "grad_share: int64[...]";
-    const rightPill = histMsg ? formatPillLabel(histMsg) : "hist_share: int64[...]";
-
-    return { recon: reconAgg, leftPill, rightPill };
+    return {
+      recon: reconAgg,
+      leftPill: gradMsg ? parsePill(gradMsg) : FALLBACK_PILL("grad_share"),
+      rightPill: histMsg ? parsePill(histMsg) : FALLBACK_PILL("hist_share"),
+    };
   }, [events]);
 }
 
@@ -92,19 +110,24 @@ function normalise(arr: number[]): number[] {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function WirePill({ label }: { label: string }) {
+/** Matches MessageWire's PacketCard so the two views feel like one system. */
+function PacketCard({ pill }: { pill: PillInfo }) {
   return (
-    <div className="relative overflow-hidden rounded border border-wire/50 px-2 py-0.5 bg-transparent">
-      <svg
-        className="absolute inset-0 w-full h-full"
-        aria-hidden="true"
-        preserveAspectRatio="none"
-      >
-        <rect width="100%" height="100%" filter={`url(#${NOISE_ID})`} />
-      </svg>
-      <span className="relative z-10 text-[9px] font-mono text-wire whitespace-nowrap">
-        {label}
-      </span>
+    <div className="relative flex items-stretch bg-ink-2/85 backdrop-blur-sm border border-wire/40 rounded-chip shadow-glow-wire overflow-hidden">
+      <div className="w-1 bg-wire" />
+      <div className="flex flex-col gap-0.5 px-2 py-1">
+        <span className="text-[9px] font-sans font-semibold uppercase tracking-widest text-wire whitespace-nowrap">
+          {pill.type.replace("_", " ")}
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-[8px] font-mono text-mute-2 bg-ink-3 rounded-chip px-1">
+            {pill.dtype}
+          </span>
+          <span className="text-[8px] font-mono text-mute-2 bg-ink-3 rounded-chip px-1">
+            {pill.shape}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -116,7 +139,10 @@ function HistogramBars({ values, colour }: { values: number[]; colour: string })
         <motion.div
           key={i}
           className={`flex-1 rounded-t-sm ${colour}`}
-          style={{ height: `${Math.max(1, Math.abs(v) * 100)}%`, opacity: Math.max(0.15, Math.abs(v)) }}
+          style={{
+            height: `${Math.max(1, Math.abs(v) * 100)}%`,
+            opacity: Math.max(0.15, Math.abs(v)),
+          }}
           initial={{ scaleY: 0, originY: "100%" }}
           animate={{ scaleY: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 30, delay: i * 0.008 }}
@@ -154,33 +180,13 @@ export function ReconstructionBeat({ events, holdMsRemaining }: ReconstructionBe
       exit={{ opacity: 0 }}
       transition={{ duration: 0.25 }}
     >
-      {/* Shared noise filter */}
-      <svg className="absolute" style={{ width: 0, height: 0, overflow: "hidden" }}>
-        <defs>
-          <filter id={NOISE_ID} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.82"
-              numOctaves="4"
-              seed="7"
-              result="noise"
-            />
-            <feColorMatrix
-              in="noise"
-              type="matrix"
-              values="0 0 0 0 0.96  0 0 0 0 0.62  0 0 0 0 0.04  1.5 0 0 0 -0.4"
-            />
-          </filter>
-        </defs>
-      </svg>
-
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-gray-950/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-ink-0/70 backdrop-blur-sm" />
 
       {/* Stage — pills + histogram share a coordinate space */}
       <div className="relative flex flex-col items-center gap-4 w-[520px]">
         {/* Converging pills row */}
-        <div className="relative h-7 w-full flex items-center">
+        <div className="relative h-9 w-full flex items-center">
           <AnimatePresence>
             {showPills && (
               <>
@@ -193,7 +199,7 @@ export function ReconstructionBeat({ events, holdMsRemaining }: ReconstructionBe
                   exit={{ x: 120, opacity: 0, scale: 0.6 }}
                   transition={{ type: "spring", stiffness: 130, damping: 18, mass: 0.7 }}
                 >
-                  <WirePill label={data.leftPill} />
+                  <PacketCard pill={data.leftPill} />
                 </motion.div>
 
                 {/* Right pill — hist_share converges from host side */}
@@ -205,7 +211,7 @@ export function ReconstructionBeat({ events, holdMsRemaining }: ReconstructionBe
                   exit={{ x: -120, opacity: 0, scale: 0.6 }}
                   transition={{ type: "spring", stiffness: 130, damping: 18, mass: 0.7 }}
                 >
-                  <WirePill label={data.rightPill} />
+                  <PacketCard pill={data.rightPill} />
                 </motion.div>
               </>
             )}
@@ -217,24 +223,25 @@ export function ReconstructionBeat({ events, holdMsRemaining }: ReconstructionBe
           {showHistogram && (
             <motion.div
               key="histogram"
-              className="w-full bg-gray-900 border border-wire/20 rounded-xl px-5 py-4"
+              className="w-full bg-ink-2 border border-line-1 rounded-card shadow-card px-5 py-4"
               initial={{ opacity: 0, scale: 0.88, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 8 }}
               transition={{ type: "spring", stiffness: 220, damping: 28 }}
             >
               <div className="flex items-baseline justify-between mb-3">
-                <span className="text-xs font-bold text-wire uppercase tracking-widest">
-                  Reconstruction Aggregate
+                <span className="text-xs font-sans font-semibold text-wire uppercase tracking-widest">
+                  <JargonTerm content={TOOLTIPS.reconstruction}>Reconstruction</JargonTerm>{" "}
+                  Aggregate
                 </span>
-                <span className="text-[10px] text-gray-500 font-mono">
+                <span className="text-[10px] text-mute-1 font-mono">
                   {data.recon.feature_id} · {data.recon.node_id}
                 </span>
               </div>
 
               {/* G per bucket */}
               <div className="mb-3">
-                <p className="text-[10px] text-guest mb-1 uppercase tracking-wider">
+                <p className="text-[10px] font-mono text-guest mb-1 uppercase tracking-wider">
                   ∑G per bucket ({gNorm.length} buckets)
                 </p>
                 <HistogramBars values={gNorm} colour="bg-guest/70" />
@@ -242,13 +249,13 @@ export function ReconstructionBeat({ events, holdMsRemaining }: ReconstructionBe
 
               {/* H per bucket */}
               <div>
-                <p className="text-[10px] text-host mb-1 uppercase tracking-wider">
+                <p className="text-[10px] font-mono text-host mb-1 uppercase tracking-wider">
                   ∑H per bucket ({hNorm.length} buckets)
                 </p>
                 <HistogramBars values={hNorm} colour="bg-host/60" />
               </div>
 
-              <p className="text-[9px] text-gray-600 mt-3">
+              <p className="text-[9px] font-mono text-mute-1 mt-3">
                 Aggregate over samples — no individual row visible
               </p>
             </motion.div>

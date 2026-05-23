@@ -11,6 +11,17 @@ import { Filmstrip } from "./components/filmstrip/Filmstrip";
 import { AucChart } from "./components/auc-chart/AucChart";
 import { TreeSummaryPanel } from "./components/tree-summary-panel/TreeSummaryPanel";
 import { FinalRevealFrame } from "./components/final-reveal/FinalRevealFrame";
+import {
+  ChapterCaption,
+  EmptyTreeScaffold,
+  GuestStatusPill,
+  HostStatusPill,
+  OrnamentMark,
+  RibbonHeader,
+  STAGE_FRAME_CLASS,
+  STAGE_FRAME_STYLE,
+  useTreeZeroNodeCount,
+} from "./components/stage/StageParts";
 import { usePlayback } from "./lib/usePlayback";
 import { buildConfig } from "./lib/playback";
 import { deriveRunMeta } from "./lib/runMeta";
@@ -28,48 +39,6 @@ interface PlayerAppProps {
 }
 
 // ---------------------------------------------------------------------------
-// Status pills — compact party attestation shown during Act 2
-// ---------------------------------------------------------------------------
-
-function GuestStatusPill() {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-lg px-3 py-2">
-        <span className="text-xs font-bold text-guest uppercase tracking-widest">Guest</span>
-        <span className="text-green-400 text-xs">✓</span>
-      </div>
-      <div className="flex flex-col gap-1">
-        <span className="text-[9px] text-gray-500 bg-gray-900 border border-gray-800 rounded px-2 py-0.5">
-          no raw gradients shared
-        </span>
-        <span className="text-[9px] text-gray-500 bg-gray-900 border border-gray-800 rounded px-2 py-0.5">
-          labels remain private
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function HostStatusPill() {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-lg px-3 py-2">
-        <span className="text-xs font-bold text-host uppercase tracking-widest">Host</span>
-        <span className="text-green-400 text-xs">✓</span>
-      </div>
-      <div className="flex flex-col gap-1">
-        <span className="text-[9px] text-gray-500 bg-gray-900 border border-gray-800 rounded px-2 py-0.5">
-          no raw features exposed
-        </span>
-        <span className="text-[9px] text-gray-500 bg-gray-900 border border-gray-800 rounded px-2 py-0.5">
-          histograms only
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 
 function PlayerApp({ events }: PlayerAppProps) {
   const [appStatus, setAppStatus] = useState<AppStatus>("cold-open");
@@ -82,6 +51,11 @@ function PlayerApp({ events }: PlayerAppProps) {
   const isAct2 = act2StartIndex >= 0 && playState.eventIndex >= act2StartIndex;
   const isFinalPhase =
     playState.status === "final-reveal-hold" || playState.status === "done";
+
+  const tree0NodeCount = useTreeZeroNodeCount(events, playState.eventIndex);
+  const showScaffold = !isAct2 && tree0NodeCount < 4;
+
+  const chapterName = isAct2 ? "Act 2 — Forest Growth" : "Act 1 — First Tree";
 
   const handleReplay = () => {
     setAppStatus("cold-open");
@@ -135,115 +109,122 @@ function PlayerApp({ events }: PlayerAppProps) {
   const isColdOpen = appStatus === "cold-open";
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 font-mono">
+    <div className="min-h-screen bg-ink-0 text-fore-1 font-sans">
       {/* Title card — visible until first play */}
       {isColdOpen && <TitleCard runMeta={runMeta} onPlay={onPlay} />}
 
       {/* Main content — shown after cold-open and before final phase */}
       {!isColdOpen && !isFinalPhase && (
         <div className="p-6 pb-44">
-          <header className="mb-4">
-            <h2 className="text-lg font-bold text-white">
-              VFL XGBoost — Protocol Replay
-            </h2>
-            <p className="text-gray-500 text-xs">
-              {runMeta.datasetName} · {runMeta.nTrees} trees · max_depth{" "}
-              {runMeta.maxDepth} · run{" "}
-              <span className="text-gray-400">{runMeta.runId}</span>
-            </p>
-          </header>
+          {/* Stage frame — anchors the protocol replay inside a defined "screen" */}
+          <section className={STAGE_FRAME_CLASS} style={STAGE_FRAME_STYLE}>
+            <RibbonHeader chapterName={chapterName} runMeta={runMeta} />
 
-          {/* Message wire — pills travel above the panels during Act 1 */}
-          {!isAct2 && (
-            <div className="mb-2">
-              <MessageWire events={events} eventIndex={playState.eventIndex} />
+            {/* Chapter caption — plain-English narration for non-technical viewers */}
+            <ChapterCaption
+              isAct2={isAct2}
+              isReconstruction={playState.status === "reconstruction-hold"}
+            />
+
+            {/* Message wire — pills travel above the panels during Act 1 */}
+            {!isAct2 && (
+              <div className="mb-2">
+                <MessageWire events={events} eventIndex={playState.eventIndex} />
+              </div>
+            )}
+
+            {/* Three-column layout: guest | centre | host */}
+            <div className="grid grid-cols-[220px_1fr_220px] gap-4 items-start">
+              {/* Left panel — full view in act 1, status pill in act 2 */}
+              <AnimatePresence mode="wait">
+                {isAct2 ? (
+                  <motion.div
+                    key="guest-status"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <GuestStatusPill />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="guest-panel"
+                    initial={{ opacity: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    <GuestPanel events={events} eventIndex={playState.eventIndex} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Centre — tree view in act 1, filmstrip + AUC in act 2 */}
+              <AnimatePresence mode="wait">
+                {isAct2 ? (
+                  <motion.section
+                    key="act2-centre"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.35 }}
+                    className="flex flex-col gap-4 min-w-0"
+                  >
+                    <Filmstrip events={events} eventIndex={playState.eventIndex} />
+                    <AucChart events={events} eventIndex={playState.eventIndex} />
+                    <div className="border-t border-line-1 pt-3">
+                      <TreeSummaryPanel events={events} eventIndex={playState.eventIndex} />
+                    </div>
+                  </motion.section>
+                ) : (
+                  <motion.section
+                    key="act1-centre"
+                    initial={{ opacity: 1 }}
+                    exit={{ opacity: 0, scale: 0.92 }}
+                    transition={{ duration: 0.3 }}
+                    className="min-w-0 relative"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <OrnamentMark className="text-wire/50" />
+                      <h3 className="text-xs font-mono text-mute-2 uppercase tracking-widest">
+                        Tree 0
+                      </h3>
+                    </div>
+                    <div className="relative min-h-[360px]">
+                      <AnimatePresence>
+                        {showScaffold && <EmptyTreeScaffold key="scaffold" />}
+                      </AnimatePresence>
+                      <TreeView events={events} eventIndex={playState.eventIndex} />
+                    </div>
+                  </motion.section>
+                )}
+              </AnimatePresence>
+
+              {/* Right panel — full view in act 1, status pill in act 2 */}
+              <AnimatePresence mode="wait">
+                {isAct2 ? (
+                  <motion.div
+                    key="host-status"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <HostStatusPill />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="host-panel"
+                    initial={{ opacity: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    <HostPanel events={events} eventIndex={playState.eventIndex} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          )}
-
-          {/* Three-column layout: guest | centre | host */}
-          <div className="grid grid-cols-[220px_1fr_220px] gap-4 items-start">
-            {/* Left panel — full view in act 1, status pill in act 2 */}
-            <AnimatePresence mode="wait">
-              {isAct2 ? (
-                <motion.div
-                  key="guest-status"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <GuestStatusPill />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="guest-panel"
-                  initial={{ opacity: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.25 }}
-                >
-                  <GuestPanel events={events} eventIndex={playState.eventIndex} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Centre — tree view in act 1, filmstrip + AUC in act 2 */}
-            <AnimatePresence mode="wait">
-              {isAct2 ? (
-                <motion.section
-                  key="act2-centre"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.35 }}
-                  className="flex flex-col gap-4 min-w-0"
-                >
-                  <Filmstrip events={events} eventIndex={playState.eventIndex} />
-                  <AucChart events={events} eventIndex={playState.eventIndex} />
-                  <div className="border-t border-gray-800 pt-3">
-                    <TreeSummaryPanel events={events} eventIndex={playState.eventIndex} />
-                  </div>
-                </motion.section>
-              ) : (
-                <motion.section
-                  key="act1-centre"
-                  initial={{ opacity: 1 }}
-                  exit={{ opacity: 0, scale: 0.92 }}
-                  transition={{ duration: 0.3 }}
-                  className="min-w-0"
-                >
-                  <h3 className="text-xs text-gray-500 mb-2 uppercase tracking-wider">
-                    Tree 0
-                  </h3>
-                  <TreeView events={events} eventIndex={playState.eventIndex} />
-                </motion.section>
-              )}
-            </AnimatePresence>
-
-            {/* Right panel — full view in act 1, status pill in act 2 */}
-            <AnimatePresence mode="wait">
-              {isAct2 ? (
-                <motion.div
-                  key="host-status"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <HostStatusPill />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="host-panel"
-                  initial={{ opacity: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.25 }}
-                >
-                  <HostPanel events={events} eventIndex={playState.eventIndex} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-          </div>
+          </section>
         </div>
       )}
 
@@ -308,16 +289,16 @@ export default function App() {
 
   if (loadStatus === "loading") {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <p className="text-gray-400 animate-pulse font-mono">Loading trace…</p>
+      <div className="min-h-screen bg-ink-0 flex items-center justify-center">
+        <p className="text-mute-2 animate-pulse font-mono">Loading trace…</p>
       </div>
     );
   }
 
   if (loadStatus === "error") {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <p className="text-red-400 font-mono">Error: {errorMsg}</p>
+      <div className="min-h-screen bg-ink-0 flex items-center justify-center">
+        <p className="text-private font-mono">Error: {errorMsg}</p>
       </div>
     );
   }
