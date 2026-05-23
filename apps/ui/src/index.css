@@ -19,3 +19,22 @@
 body {
   margin: 0;
 }
+
+/* Filmstrip scroll rail — always-visible, styled to match the dark theme.
+ * macOS overlays scrollbars by default; forcing overflow-x: scroll and
+ * explicit styling makes the affordance reliably visible. */
+.filmstrip-scroll {
+  overflow-x: scroll;
+  scrollbar-width: thin;            /* Firefox */
+  scrollbar-color: #374151 transparent; /* Firefox: thumb track */
+}
+.filmstrip-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.filmstrip-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.filmstrip-scroll::-webkit-scrollbar-thumb {
+  background-color: #374151;
+  border-radius: 2px;
+}

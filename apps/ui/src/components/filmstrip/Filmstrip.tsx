@@ -4,11 +4,18 @@
  * Each thumbnail is a miniaturised SVG tree (topology preserved, no labels).
  * A flash animation fires when a new thumbnail lands. Tree 0 enters with a
  * slight scale-up to mark the "camera pull-back" from the full tree view.
+ *
+ * Overflow strategy (issue #35): Option C — horizontal scroll with fade-to-edge
+ * indicators. The scroll container uses overflow-x-auto and auto-pans to the
+ * newest thumbnail. Left/right gradient masks appear when there is content to
+ * reveal in that direction, giving a clear affordance that the strip is
+ * scrollable. A custom scrollbar (via Tailwind/CSS) ensures it remains visible
+ * on macOS where native scrollbars hide by default.
  */
 
 import { AnimatePresence, motion } from "framer-motion";
 import { hierarchy, tree } from "d3-hierarchy";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NodeExpandedEvent, TraceEvent } from "../../lib/trace-reader";
 
 // ---------------------------------------------------------------------------
@@ -179,6 +186,8 @@ interface FilmstripProps {
 
 export function Filmstrip({ events, eventIndex }: FilmstripProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   const visibleTrees = useMemo(() => {
     const trees: number[] = [];
@@ -189,12 +198,31 @@ export function Filmstrip({ events, eventIndex }: FilmstripProps) {
     return trees;
   }, [events, eventIndex]);
 
-  // Auto-scroll to reveal the latest thumbnail
+  /** Recompute whether fade masks should show. */
+  const updateFades = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  }, []);
+
+  // Auto-scroll to reveal the latest thumbnail, then refresh fade state.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
-    }
-  }, [visibleTrees.length]);
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollLeft = el.scrollWidth;
+    // After the DOM settles, recompute.
+    requestAnimationFrame(updateFades);
+  }, [visibleTrees.length, updateFades]);
+
+  // Update fades on scroll and on initial mount.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateFades();
+    el.addEventListener("scroll", updateFades, { passive: true });
+    return () => el.removeEventListener("scroll", updateFades);
+  }, [updateFades]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -206,21 +234,47 @@ export function Filmstrip({ events, eventIndex }: FilmstripProps) {
           {visibleTrees.length} / 100
         </span>
       </div>
-      <div
-        ref={scrollRef}
-        className="flex gap-1.5 overflow-x-auto pb-1"
-        style={{ scrollBehavior: "smooth" }}
-      >
-        <AnimatePresence>
-          {visibleTrees.map((treeIndex) => (
-            <TreeThumb
-              key={treeIndex}
-              events={events}
-              treeIndex={treeIndex}
-              isFirst={treeIndex === 0}
-            />
-          ))}
-        </AnimatePresence>
+
+      {/* Scroll container with fade-edge indicators */}
+      <div className="relative">
+        {/* Left fade — visible once user has scrolled right */}
+        {canScrollLeft && (
+          <div
+            className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10"
+            style={{
+              background:
+                "linear-gradient(to right, rgb(3 7 18), transparent)",
+            }}
+          />
+        )}
+
+        {/* Right fade — visible while there are thumbnails off to the right */}
+        {canScrollRight && (
+          <div
+            className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10"
+            style={{
+              background:
+                "linear-gradient(to left, rgb(3 7 18), transparent)",
+            }}
+          />
+        )}
+
+        <div
+          ref={scrollRef}
+          className="flex gap-1.5 overflow-x-auto pb-1 filmstrip-scroll"
+          style={{ scrollBehavior: "smooth" }}
+        >
+          <AnimatePresence>
+            {visibleTrees.map((treeIndex) => (
+              <TreeThumb
+                key={treeIndex}
+                events={events}
+                treeIndex={treeIndex}
+                isFirst={treeIndex === 0}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );
