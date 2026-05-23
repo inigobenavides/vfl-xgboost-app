@@ -147,8 +147,15 @@ function PlayerApp({ events }: PlayerAppProps) {
             </p>
           </header>
 
+          {/* Message wire — pills travel above the panels during Act 1 */}
+          {!isAct2 && (
+            <div className="mb-2">
+              <MessageWire events={events} eventIndex={playState.eventIndex} />
+            </div>
+          )}
+
           {/* Three-column layout: guest | centre | host */}
-          <div className="relative grid grid-cols-[220px_1fr_220px] gap-4 items-start">
+          <div className="grid grid-cols-[220px_1fr_220px] gap-4 items-start">
             {/* Left panel — full view in act 1, status pill in act 2 */}
             <AnimatePresence mode="wait">
               {isAct2 ? (
@@ -227,10 +234,6 @@ function PlayerApp({ events }: PlayerAppProps) {
               )}
             </AnimatePresence>
 
-            {/* Message wire — only shown during act 1 */}
-            {!isAct2 && (
-              <MessageWire events={events} eventIndex={playState.eventIndex} />
-            )}
           </div>
         </div>
       )}

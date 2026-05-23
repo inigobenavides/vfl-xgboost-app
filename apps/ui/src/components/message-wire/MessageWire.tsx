@@ -1,9 +1,13 @@
 /**
  * MessageWire — animated share-pills flying between party panels.
  *
+ * Self-contained horizontal band rendered ABOVE the guest/host panel grid.
  * Pills are driven by ProtocolMessageEvents from the trace. Each pill starts at
- * the coordinator center, then spring-animates to the destination party panel.
+ * the coordinator center, then spring-animates to the destination party column.
  * Pills carry only shape/dtype labels — no payload digits.
+ *
+ * Layout: the band is full-width and matches the panel grid's column geometry,
+ * so guestX / hostX line up with the centres of the 220px panels below.
  */
 
 import { AnimatePresence, motion } from "framer-motion";
@@ -14,9 +18,10 @@ import type { ProtocolMessageEvent, TraceEvent } from "../../lib/trace-reader";
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Y offset from the top of the grid container where the wire runs.
- *  22px sits within the panel header row ("GUEST"/"HOST"), above the data rows. */
-const WIRE_Y = 22;
+/** Height of the wire band (px). Pills + wire line are centred within this. */
+const BAND_HEIGHT = 48;
+/** Y of the wire line and pill centres, relative to the band top. */
+const WIRE_Y = BAND_HEIGHT / 2;
 /** Approximate half-width of a rendered pill badge (px). */
 const PILL_HALF_W = 88;
 /** How many trailing events to keep pills visible. */
@@ -118,7 +123,7 @@ function SharePill({ pill, startX, endX }: SharePillProps) {
 }
 
 // ---------------------------------------------------------------------------
-// MessageWire — overlay spanning the full grid container
+// MessageWire — self-contained band rendered above the panel grid
 // ---------------------------------------------------------------------------
 
 interface MessageWireProps {
@@ -142,9 +147,8 @@ export function MessageWire({ events, eventIndex }: MessageWireProps) {
 
   const pills = usePills(events, eventIndex);
 
-  // Layout geometry (grid: cols=[220px_1fr_220px] gap-4, no padding on the grid itself)
-  // Guest column center: 220/2 = 110px from grid left edge
-  // Host column center: width - 110px
+  // Band matches the panel grid below (cols=[220px_1fr_220px] gap-4, no outer padding).
+  // Guest column centre sits 110px from the left edge; host column centre 110px from right.
   const guestX = 110;
   const hostX = width - 110;
   const centerX = width / 2;
@@ -152,7 +156,8 @@ export function MessageWire({ events, eventIndex }: MessageWireProps) {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 pointer-events-none"
+      className="relative w-full pointer-events-none"
+      style={{ height: BAND_HEIGHT }}
       aria-hidden="true"
     >
       {/* One shared SVG filter definition for all pill noise textures */}
