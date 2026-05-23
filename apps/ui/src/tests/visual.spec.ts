@@ -13,11 +13,18 @@ import { test, expect } from "@playwright/test";
 // Story URL helper
 // ---------------------------------------------------------------------------
 
-/** Navigate to a Storybook story by component and story name. */
+/** Navigate to a Storybook story by component and story name.
+ *
+ * Storybook auto-generates IDs from the file path under src/stories/:
+ *   src/stories/TitleCard.stories.tsx → "stories-titlecard"
+ * We target the iframe directly so we get an isolated component render
+ * without the Storybook shell (sidebar, toolbar, etc.).
+ */
 function storyUrl(component: string, story: string): string {
-  // Storybook 10 URL format: /?story=<component>--<story>
-  const id = `${component}--${story}`.toLowerCase().replace(/\s+/g, "-");
-  return `/?story=${id}&viewMode=story`;
+  // e.g. "title-card-stories" → "stories-titlecard"
+  const compId = "stories-" + component.replace(/-stories$/, "").replace(/-/g, "");
+  const storyId = story.toLowerCase().replace(/\s+/g, "-");
+  return `/iframe.html?id=${compId}--${storyId}&viewMode=story`;
 }
 
 const VIEWPORT = { width: 1280, height: 720 };

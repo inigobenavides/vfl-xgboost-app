@@ -20,7 +20,7 @@ export default defineConfig({
   },
 
   webServer: {
-    command: "npx serve storybook-static -p 6006 --no-clipboard",
+    command: "npx http-server storybook-static -p 6006 --cors -c-1 -s",
     url: "http://localhost:6006",
     reuseExistingServer: true,
     timeout: 30_000,
