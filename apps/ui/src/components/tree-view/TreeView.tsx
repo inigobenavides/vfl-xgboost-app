@@ -23,6 +23,23 @@ import type { TraceEvent } from "../../lib/trace-reader";
 
 const MARGIN = NODE_W; // padding around the tree extents
 
+/**
+ * Auto-fit strategy (issue #31):
+ *
+ * We set the SVG's viewBox to cover the full natural d3 layout extent and use
+ * preserveAspectRatio="xMidYMid meet" so the browser scales the whole tree
+ * proportionally to fill the column width.  The SVG element spans 100 % of
+ * the column width; its rendered height is proportional.  A min-height keeps
+ * shallow single-node trees from collapsing to a sliver.
+ *
+ * Trade-off vs Option B (dynamic NODE_W) or Option C (pan-to-newest):
+ *   • No ResizeObserver / JS measurement required — pure CSS/SVG attribute.
+ *   • The entire tree is always visible — no clipping, no scrollbar.
+ *   • At max_depth 4 the tree scales down a little; for a demo this is the
+ *     right trade-off because the viewer can see all the structure at a glance.
+ */
+const MIN_SVG_HEIGHT = 200; // px — prevents the root-only tree from looking too cramped
+
 // ---------------------------------------------------------------------------
 // Individual node shape
 // ---------------------------------------------------------------------------
@@ -204,11 +221,12 @@ export function TreeView({ events, eventIndex }: TreeViewProps) {
   const svgH = maxY - minY + NODE_H + MARGIN / 2 + TOP_PAD;
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="w-full">
       <svg
-        width={svgW}
-        height={svgH}
+        width="100%"
+        height={Math.max(svgH, MIN_SVG_HEIGHT)}
         viewBox={`0 ${viewBoxTop} ${svgW} ${svgH}`}
+        preserveAspectRatio="xMidYMid meet"
         className="font-mono"
       >
         {/* Edges (rendered first so they appear behind nodes) */}
