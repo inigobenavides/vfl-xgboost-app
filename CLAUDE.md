@@ -89,9 +89,14 @@ UI-side (run from `apps/ui/`):
 
 ```bash
 npm test                         # vitest unit tests
-npm run test:visual              # Playwright visual regression vs. committed baselines
-npm run baseline:linux           # regen *-chromium-linux.png baselines via Docker
-                                 # (after a visual change, before pushing the PR)
+npm run test:visual              # Playwright visual regression vs. committed
+                                 # baselines — Linux/CI only (per ADR 0002)
+npm run test:visual:linux        # same suite, via the pinned Playwright Docker
+                                 # image — use this from macOS/Windows to verify
+                                 # against the canonical Linux baselines
+npm run baseline:linux           # regen *-chromium-linux.png baselines via the
+                                 # same Docker image (after a visual change,
+                                 # before pushing the PR)
 ```
 
 ## MVP definition of done

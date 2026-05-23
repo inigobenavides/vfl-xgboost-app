@@ -13,6 +13,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test:visual": "playwright test",
+    "test:visual:linux": "bash scripts/test-visual-linux.sh",
     "baseline:linux": "bash scripts/baseline-linux.sh"
   },
   "dependencies": {
