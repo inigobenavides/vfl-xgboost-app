@@ -202,11 +202,10 @@ export function TreeView({ events, eventIndex }: TreeViewProps) {
   const layout = useTreeState(events, eventIndex);
 
   if (!layout.root) {
-    return (
-      <div className="flex items-center justify-center h-48 text-gray-600 text-sm font-mono">
-        Waiting for tree 0…
-      </div>
-    );
+    // Empty state: App provides its own scaffold (ghost tree + "awaiting first
+    // split"). Standalone TreeView stories see an empty box at the same height
+    // the real tree would occupy.
+    return <div className="h-48" aria-hidden="true" />;
   }
 
   const { nodes, links, minX, maxX, minY, maxY } = layout;
