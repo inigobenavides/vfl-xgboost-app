@@ -5,7 +5,7 @@ const preview: Preview = {
   parameters: {
     backgrounds: {
       default: "dark",
-      values: [{ name: "dark", value: "#030712" }],
+      values: [{ name: "dark", value: "#05070b" }],
     },
     layout: "fullscreen",
   },

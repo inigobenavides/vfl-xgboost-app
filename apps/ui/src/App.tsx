@@ -34,15 +34,15 @@ interface PlayerAppProps {
 function GuestStatusPill() {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-lg px-3 py-2">
-        <span className="text-xs font-bold text-guest uppercase tracking-widest">Guest</span>
-        <span className="text-green-400 text-xs">✓</span>
+      <div className="flex items-center gap-2 bg-ink-2 border border-line-1 rounded-card px-3 py-2">
+        <span className="text-xs font-sans font-semibold text-guest uppercase tracking-widest">Guest</span>
+        <span className="text-host text-xs">✓</span>
       </div>
       <div className="flex flex-col gap-1">
-        <span className="text-[9px] text-gray-500 bg-gray-900 border border-gray-800 rounded px-2 py-0.5">
+        <span className="text-[9px] font-mono text-mute-1 bg-ink-2 border border-line-1 rounded-chip px-2 py-0.5">
           no raw gradients shared
         </span>
-        <span className="text-[9px] text-gray-500 bg-gray-900 border border-gray-800 rounded px-2 py-0.5">
+        <span className="text-[9px] font-mono text-mute-1 bg-ink-2 border border-line-1 rounded-chip px-2 py-0.5">
           labels remain private
         </span>
       </div>
@@ -53,15 +53,15 @@ function GuestStatusPill() {
 function HostStatusPill() {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-lg px-3 py-2">
-        <span className="text-xs font-bold text-host uppercase tracking-widest">Host</span>
-        <span className="text-green-400 text-xs">✓</span>
+      <div className="flex items-center gap-2 bg-ink-2 border border-line-1 rounded-card px-3 py-2">
+        <span className="text-xs font-sans font-semibold text-host uppercase tracking-widest">Host</span>
+        <span className="text-host text-xs">✓</span>
       </div>
       <div className="flex flex-col gap-1">
-        <span className="text-[9px] text-gray-500 bg-gray-900 border border-gray-800 rounded px-2 py-0.5">
+        <span className="text-[9px] font-mono text-mute-1 bg-ink-2 border border-line-1 rounded-chip px-2 py-0.5">
           no raw features exposed
         </span>
-        <span className="text-[9px] text-gray-500 bg-gray-900 border border-gray-800 rounded px-2 py-0.5">
+        <span className="text-[9px] font-mono text-mute-1 bg-ink-2 border border-line-1 rounded-chip px-2 py-0.5">
           histograms only
         </span>
       </div>
@@ -135,7 +135,7 @@ function PlayerApp({ events }: PlayerAppProps) {
   const isColdOpen = appStatus === "cold-open";
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 font-mono">
+    <div className="min-h-screen bg-ink-0 text-fore-1 font-sans">
       {/* Title card — visible until first play */}
       {isColdOpen && <TitleCard runMeta={runMeta} onPlay={onPlay} />}
 
@@ -308,16 +308,16 @@ export default function App() {
 
   if (loadStatus === "loading") {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <p className="text-gray-400 animate-pulse font-mono">Loading trace…</p>
+      <div className="min-h-screen bg-ink-0 flex items-center justify-center">
+        <p className="text-mute-2 animate-pulse font-mono">Loading trace…</p>
       </div>
     );
   }
 
   if (loadStatus === "error") {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <p className="text-red-400 font-mono">Error: {errorMsg}</p>
+      <div className="min-h-screen bg-ink-0 flex items-center justify-center">
+        <p className="text-private font-mono">Error: {errorMsg}</p>
       </div>
     );
   }

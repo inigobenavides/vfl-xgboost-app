@@ -1,10 +1,10 @@
 /**
- * MessageWire — animated share-pills flying between party panels.
+ * MessageWire — animated data-packet cards flying between party panels.
  *
  * Self-contained horizontal band rendered ABOVE the guest/host panel grid.
- * Pills are driven by ProtocolMessageEvents from the trace. Each pill starts at
- * the coordinator center, then spring-animates to the destination party column.
- * Pills carry only shape/dtype labels — no payload digits.
+ * Pills are driven by ProtocolMessageEvents from the trace. Each pill starts
+ * at the coordinator centre, then ease-animates to the destination party
+ * column. Pills carry only type + shape + dtype — no payload digits.
  *
  * Layout: the band is full-width and matches the panel grid's column geometry,
  * so guestX / hostX line up with the centres of the 220px panels below.
@@ -18,16 +18,10 @@ import type { ProtocolMessageEvent, TraceEvent } from "../../lib/trace-reader";
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Height of the wire band (px). Pills + wire line are centred within this. */
-const BAND_HEIGHT = 48;
-/** Y of the wire line and pill centres, relative to the band top. */
+const BAND_HEIGHT = 72;
 const WIRE_Y = BAND_HEIGHT / 2;
-/** Approximate half-width of a rendered pill badge (px). */
-const PILL_HALF_W = 88;
-/** How many trailing events to keep pills visible. */
+const PILL_HALF_W = 110;
 const TRAIL_EVENTS = 8;
-/** Noise SVG filter ID — defined once, shared by all pills. */
-const NOISE_ID = "vfl-wire-noise";
 
 // ---------------------------------------------------------------------------
 // Label formatting
@@ -40,20 +34,28 @@ const TYPE_ABBREV: Record<string, string> = {
   ApplySplitRequest: "apply_split",
 };
 
-function formatLabel(e: ProtocolMessageEvent): string {
-  const name = TYPE_ABBREV[e.payload_type] ?? e.payload_type.slice(0, 12).toLowerCase();
-  const shape = e.payload_shape.join("×");
-  return `${name}: int64[${shape}]`;
-}
-
-// ---------------------------------------------------------------------------
-// Data derivation
-// ---------------------------------------------------------------------------
-
 interface PillDef {
   id: string;
-  label: string;
+  type: string;
+  shape: string;
+  dtype: string;
   side: "left" | "right";
+}
+
+function formatPill(
+  e: ProtocolMessageEvent,
+  side: "left" | "right",
+  i: number,
+): PillDef {
+  const type =
+    TYPE_ABBREV[e.payload_type] ?? e.payload_type.slice(0, 12).toLowerCase();
+  return {
+    id: `${i}-${side === "left" ? "L" : "R"}`,
+    type,
+    shape: `[${e.payload_shape.join("×")}]`,
+    dtype: "int64",
+    side,
+  };
 }
 
 function usePills(events: TraceEvent[], eventIndex: number): PillDef[] {
@@ -63,12 +65,11 @@ function usePills(events: TraceEvent[], eventIndex: number): PillDef[] {
     for (let i = start; i <= eventIndex && i < events.length; i++) {
       const e = events[i];
       if (e.type !== "protocol_message") continue;
-      const label = formatLabel(e);
       if (e.to_party === "guest" || e.to_party === "guest+host") {
-        pills.push({ id: `${i}-L`, label, side: "left" });
+        pills.push(formatPill(e, "left", i));
       }
       if (e.to_party === "host" || e.to_party === "guest+host") {
-        pills.push({ id: `${i}-R`, label, side: "right" });
+        pills.push(formatPill(e, "right", i));
       }
     }
     return pills;
@@ -76,29 +77,33 @@ function usePills(events: TraceEvent[], eventIndex: number): PillDef[] {
 }
 
 // ---------------------------------------------------------------------------
-// PillBadge — opaque noise-textured rectangle with shape/dtype label
+// PacketCard — uppercase sans type row, mono dtype + shape chips
 // ---------------------------------------------------------------------------
 
-function PillBadge({ label }: { label: string }) {
+function PacketCard({ pill }: { pill: PillDef }) {
   return (
-    <div className="relative overflow-hidden rounded border border-wire/50 px-2 py-0.5">
-      {/* Noise texture via shared SVG filter */}
-      <svg
-        className="absolute inset-0 w-full h-full"
-        aria-hidden="true"
-        preserveAspectRatio="none"
-      >
-        <rect width="100%" height="100%" filter={`url(#${NOISE_ID})`} />
-      </svg>
-      <span className="relative z-10 text-[9px] font-mono text-wire whitespace-nowrap">
-        {label}
-      </span>
+    <div className="relative flex items-stretch bg-ink-2/85 backdrop-blur-sm border border-wire/40 rounded-chip shadow-glow-wire overflow-hidden">
+      {/* Tape-flag stripe */}
+      <div className="w-1 bg-wire" />
+      <div className="flex flex-col gap-0.5 px-2 py-1">
+        <span className="text-[9px] font-sans font-semibold uppercase tracking-widest text-wire whitespace-nowrap">
+          {pill.type.replace("_", " ")}
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-[8px] font-mono text-mute-2 bg-ink-3 rounded-chip px-1">
+            {pill.dtype}
+          </span>
+          <span className="text-[8px] font-mono text-mute-2 bg-ink-3 rounded-chip px-1">
+            {pill.shape}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// SharePill — animated motion wrapper for a single pill
+// SharePill — motion wrapper that flies the card from coordinator to endpoint
 // ---------------------------------------------------------------------------
 
 interface SharePillProps {
@@ -111,14 +116,45 @@ function SharePill({ pill, startX, endX }: SharePillProps) {
   return (
     <motion.div
       className="absolute"
-      style={{ top: WIRE_Y - 9, left: 0 }}
-      initial={{ x: startX - PILL_HALF_W, opacity: 0, scale: 0.55 }}
+      style={{ top: WIRE_Y - 18, left: 0 }}
+      initial={{ x: startX - PILL_HALF_W, opacity: 0, scale: 0.6 }}
       animate={{ x: endX - PILL_HALF_W, opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.7, y: 5 }}
-      transition={{ type: "spring", stiffness: 170, damping: 22, mass: 0.7 }}
+      exit={{ opacity: 0, scale: 0.7, y: 6 }}
+      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
     >
-      <PillBadge label={pill.label} />
+      <PacketCard pill={pill} />
     </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TravelingLight — small radial-gradient glint that swims along the wire
+// ---------------------------------------------------------------------------
+
+function TravelingLight({
+  startX,
+  endX,
+  triggerId,
+}: {
+  startX: number;
+  endX: number;
+  triggerId: string;
+}) {
+  return (
+    <motion.div
+      key={triggerId}
+      className="absolute pointer-events-none"
+      style={{
+        top: WIRE_Y - 1,
+        height: 2,
+        width: 60,
+        background:
+          "radial-gradient(ellipse at center, var(--color-wire-glow) 0%, transparent 70%)",
+      }}
+      initial={{ x: startX - 30, opacity: 0 }}
+      animate={{ x: endX - 30, opacity: [0, 0.85, 0] }}
+      transition={{ duration: 0.5, ease: [0.32, 0, 0.16, 1] }}
+    />
   );
 }
 
@@ -160,32 +196,62 @@ export function MessageWire({ events, eventIndex }: MessageWireProps) {
       style={{ height: BAND_HEIGHT }}
       aria-hidden="true"
     >
-      {/* One shared SVG filter definition for all pill noise textures */}
-      <svg className="absolute" style={{ width: 0, height: 0, overflow: "hidden" }}>
-        <defs>
-          <filter id={NOISE_ID} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
-            <feTurbulence type="fractalNoise" baseFrequency="0.82" numOctaves="4" seed="7" result="noise" />
-            <feColorMatrix
-              in="noise"
-              type="matrix"
-              values="0 0 0 0 0.96  0 0 0 0 0.62  0 0 0 0 0.04  1.5 0 0 0 -0.4"
-            />
-          </filter>
-        </defs>
-      </svg>
-
-      {/* Horizontal wire line connecting guest ↔ host */}
+      {/* Wire line — soft gradient track, fading at the ends */}
       <div
-        className="absolute h-px bg-wire/15"
-        style={{ top: WIRE_Y, left: guestX, width: hostX - guestX }}
-      />
-      {/* Coordinator dot at center */}
-      <div
-        className="absolute w-2 h-2 rounded-full bg-wire/30 -translate-x-1/2 -translate-y-1/2"
-        style={{ top: WIRE_Y, left: centerX }}
+        className="absolute h-px"
+        style={{
+          top: WIRE_Y,
+          left: guestX,
+          width: hostX - guestX,
+          background:
+            "linear-gradient(to right, transparent 0%, var(--color-wire-soft) 18%, var(--color-wire-soft) 82%, transparent 100%)",
+          opacity: 0.5,
+        }}
       />
 
-      {/* Animated pills */}
+      {/* Coordinator dot — white core + amber halo, with an always-pulsing ring */}
+      <div
+        className="absolute rounded-full bg-fore-0 shadow-glow-wire -translate-x-1/2 -translate-y-1/2"
+        style={{ top: WIRE_Y, left: centerX, width: 6, height: 6 }}
+      />
+      <motion.div
+        className="absolute rounded-full border border-wire/60 -translate-x-1/2 -translate-y-1/2"
+        style={{ top: WIRE_Y, left: centerX, width: 6, height: 6 }}
+        animate={{
+          width: [6, 24, 6],
+          height: [6, 24, 6],
+          opacity: [0.8, 0, 0.8],
+        }}
+        transition={{ duration: 2.4, ease: "easeOut", repeat: Infinity }}
+      />
+
+      {/* Endpoint chevrons — subtle flow direction cues */}
+      <div
+        className="absolute -translate-y-1/2 text-wire/60 text-[10px] font-mono"
+        style={{ top: WIRE_Y, left: guestX - 14 }}
+      >
+        ◂
+      </div>
+      <div
+        className="absolute -translate-y-1/2 text-wire/60 text-[10px] font-mono"
+        style={{ top: WIRE_Y, left: hostX + 6 }}
+      >
+        ▸
+      </div>
+
+      {/* Traveling-light beams — one per pill mount */}
+      <AnimatePresence>
+        {pills.map((p) => (
+          <TravelingLight
+            key={`light-${p.id}`}
+            triggerId={`light-${p.id}`}
+            startX={centerX}
+            endX={p.side === "left" ? guestX : hostX}
+          />
+        ))}
+      </AnimatePresence>
+
+      {/* Animated data-packet cards */}
       <AnimatePresence>
         {pills.map((pill) => (
           <SharePill

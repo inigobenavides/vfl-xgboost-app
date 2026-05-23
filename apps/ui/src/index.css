@@ -1,15 +1,77 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens — single source of truth for the visual system.
+ * Tailwind 4 auto-generates utilities from the `--color-*`, `--font-*`,
+ * `--text-*`, `--radius-*`, `--shadow-*`, `--ease-*`, `--duration-*` names below.
+ */
 @theme {
-  --color-guest: #6366f1;
-  --color-host: #10b981;
-  --color-wire: #f59e0b;
-  --color-private: #ef4444;
-  --color-public: #3b82f6;
+  /* ----- Grayscale ramp — slate-tinted, deeper bottom ----- */
+  --color-ink-0: #05070b;   /* page void */
+  --color-ink-1: #0a0d14;   /* panel bg */
+  --color-ink-2: #11151f;   /* elevated card */
+  --color-ink-3: #1a2030;   /* hover / inner well */
+  --color-line-1: #232a3a;  /* hairline */
+  --color-line-2: #2f3850;  /* prominent border */
+  --color-mute-1: #5b647a;  /* faint label */
+  --color-mute-2: #8a93a8;  /* secondary text */
+  --color-fore-1: #c8cfdc;  /* body */
+  --color-fore-2: #e7ebf3;  /* heading */
+  --color-fore-0: #ffffff;  /* hero numeral only */
+
+  /* ----- Semantic accents — hue-tuned off Tailwind defaults ----- */
+  --color-guest: #7c83ff;        /* iris, cooler than indigo-500 */
+  --color-guest-soft: #4148b8;
+  --color-host: #34d8a3;         /* spring teal */
+  --color-host-soft: #117a5a;
+  --color-wire: #ffb84d;         /* warmer amber */
+  --color-wire-soft: #b06a14;
+  --color-wire-glow: #ffd089;
+  --color-private: #ff6b6b;      /* coral */
+  --color-public: #5aa9ff;       /* sky-cyan */
+
+  /* ----- Font families ----- */
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-sans: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* ----- Type scale (font-size + line-height pairs) ----- */
+  --text-xs: 11px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 20px;
+  --text-base: 15px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 26px;
+  --text-xl: 24px;
+  --text-xl--line-height: 32px;
+  --text-2xl: 36px;
+  --text-2xl--line-height: 42px;
+  --text-hero: 72px;
+  --text-hero--line-height: 76px;
+
+  /* ----- Radii ----- */
+  --radius-chip: 4px;
+  --radius-card: 10px;
+  --radius-stage: 18px;
+
+  /* ----- Elevation ----- */
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 8px 24px rgb(0 0 0 / 0.35);
+  --shadow-stage: 0 24px 80px rgb(0 0 0 / 0.55);
+  --shadow-glow-wire: 0 0 24px rgb(255 184 77 / 0.35);
+
+  /* ----- Motion ----- */
+  --ease-stage: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-snap: cubic-bezier(0.32, 0, 0.16, 1);
+  --duration-fast: 160ms;
+  --duration-base: 320ms;
+  --duration-slow: 640ms;
+  --duration-cinema: 1200ms;
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
