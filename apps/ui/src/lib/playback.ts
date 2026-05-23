@@ -78,10 +78,22 @@ export interface PlaybackState {
   speed: Speed;
   /** Remaining hold duration in ms — only meaningful during *-hold statuses. */
   holdMsRemaining: number;
+  /**
+   * Fractional event progress accumulated across ticks.
+   * Kept so that sub-event-width frames (e.g. 16.7 ms at 1×) still advance
+   * the index eventually. Reset to 0 on any non-tick action.
+   */
+  eventAccumulator: number;
 }
 
 export function initialState(): PlaybackState {
-  return { status: "paused", eventIndex: 0, speed: 1, holdMsRemaining: 0 };
+  return {
+    status: "paused",
+    eventIndex: 0,
+    speed: 1,
+    holdMsRemaining: 0,
+    eventAccumulator: 0,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -136,13 +148,14 @@ export function reduce(
   switch (action.type) {
     case "play": {
       if (state.status === "done" || state.status === "playing") return state;
-      return { ...state, status: "playing" };
+      return { ...state, status: "playing", eventAccumulator: 0 };
     }
 
     case "pause": {
-      if (state.status === "playing") return { ...state, status: "paused" };
+      if (state.status === "playing")
+        return { ...state, status: "paused", eventAccumulator: 0 };
       if (state.status === "reconstruction-hold")
-        return { ...state, status: "paused", holdMsRemaining: 0 };
+        return { ...state, status: "paused", holdMsRemaining: 0, eventAccumulator: 0 };
       return state;
     }
 
@@ -152,6 +165,7 @@ export function reduce(
         status: "paused",
         eventIndex: clamp(state.eventIndex - 1, 0, maxIndex),
         holdMsRemaining: 0,
+        eventAccumulator: 0,
       };
     }
 
@@ -161,6 +175,7 @@ export function reduce(
         status: "paused",
         eventIndex: clamp(state.eventIndex + 1, 0, maxIndex),
         holdMsRemaining: 0,
+        eventAccumulator: 0,
       };
     }
 
@@ -170,6 +185,7 @@ export function reduce(
         status: "paused",
         eventIndex: clamp(action.eventIndex, 0, maxIndex),
         holdMsRemaining: 0,
+        eventAccumulator: 0,
       };
     }
 
@@ -195,6 +211,7 @@ export function reduce(
         status: "paused",
         eventIndex: chapterOffsets[targetCi].eventIndex,
         holdMsRemaining: 0,
+        eventAccumulator: 0,
       };
     }
 
@@ -206,11 +223,12 @@ export function reduce(
         status: "paused",
         eventIndex: chapterOffsets[chapterIndex].eventIndex,
         holdMsRemaining: 0,
+        eventAccumulator: 0,
       };
     }
 
     case "set-speed": {
-      return { ...state, speed: action.speed };
+      return { ...state, speed: action.speed, eventAccumulator: 0 };
     }
 
     case "restart": {
@@ -232,12 +250,10 @@ export function reduce(
 
       if (state.status !== "playing") return state;
 
-      const eventsPerMs = state.speed / MS_PER_EVENT_1X;
-      const nextIndex = clamp(
-        Math.floor(state.eventIndex + action.deltaMs * eventsPerMs),
-        0,
-        maxIndex,
-      );
+      const acc = state.eventAccumulator + action.deltaMs * (state.speed / MS_PER_EVENT_1X);
+      const advance = Math.floor(acc);
+      const remainder = acc - advance;
+      const nextIndex = clamp(state.eventIndex + advance, 0, maxIndex);
 
       // Check hold triggers — did we cross a special marker?
       if (
@@ -250,6 +266,7 @@ export function reduce(
           status: "reconstruction-hold",
           eventIndex: reconstructionEventIndex,
           holdMsRemaining: RECONSTRUCTION_HOLD_MS,
+          eventAccumulator: 0,
         };
       }
 
@@ -263,14 +280,15 @@ export function reduce(
           status: "final-reveal-hold",
           eventIndex: finalEventIndex,
           holdMsRemaining: FINAL_REVEAL_HOLD_MS,
+          eventAccumulator: 0,
         };
       }
 
       if (nextIndex >= maxIndex) {
-        return { ...state, status: "done", eventIndex: maxIndex };
+        return { ...state, status: "done", eventIndex: maxIndex, eventAccumulator: 0 };
       }
 
-      return { ...state, eventIndex: nextIndex };
+      return { ...state, eventIndex: nextIndex, eventAccumulator: remainder };
     }
   }
 }

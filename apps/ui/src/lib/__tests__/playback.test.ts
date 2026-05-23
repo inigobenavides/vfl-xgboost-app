@@ -364,3 +364,164 @@ describe("speed", () => {
     expect(r2x.eventIndex).toBeGreaterThan(r1x.eventIndex);
   });
 });
+
+// ---------------------------------------------------------------------------
+// eventAccumulator — fractional progress fix (issue #39)
+// ---------------------------------------------------------------------------
+
+describe("eventAccumulator (tick accumulation)", () => {
+  it("three 16 ms ticks at 1× yield eventIndex 1 after the third tick", () => {
+    // 16 ms × (1/40 events/ms) = 0.4 events per tick
+    // After tick 1: acc = 0.4, advance = 0, index = 0, remainder = 0.4
+    // After tick 2: acc = 0.8, advance = 0, index = 0, remainder = 0.8
+    // After tick 3: acc = 1.2, advance = 1, index = 1, remainder = 0.2
+    // The exact per-tick contribution at 16 ms × (1/40) = 0.4 per tick,
+    // so 3 × 0.4 = 1.2 → floor(1.2) = 1.
+    const playing: PlaybackState = {
+      ...initialState(),
+      status: "playing",
+      eventIndex: 0,
+    };
+    let s = playing;
+    s = step(s, { type: "tick", deltaMs: 16 });
+    s = step(s, { type: "tick", deltaMs: 16 });
+    s = step(s, { type: "tick", deltaMs: 16 });
+    expect(s.eventIndex).toBe(1);
+    expect(s.status).toBe("playing");
+    // Remainder should be the fractional part after removing the integer advance
+    expect(s.eventAccumulator).toBeGreaterThan(0);
+    expect(s.eventAccumulator).toBeLessThan(1);
+  });
+
+  it("without accumulator, three 16 ms ticks at 1× would never advance (regression guard)", () => {
+    // This test documents the old broken behaviour: floor(0 + 0.4) = 0 every tick.
+    // With the fix, index DOES advance. We simply confirm the new behaviour is correct.
+    const playing: PlaybackState = {
+      ...initialState(),
+      status: "playing",
+      eventIndex: 0,
+    };
+    let s = playing;
+    s = step(s, { type: "tick", deltaMs: 16 });
+    s = step(s, { type: "tick", deltaMs: 16 });
+    // Two ticks of 0.4 → accumulated 0.8, still no advance yet
+    expect(s.eventIndex).toBe(0);
+    // Third tick tips over 1.0
+    s = step(s, { type: "tick", deltaMs: 16 });
+    expect(s.eventIndex).toBe(1);
+  });
+
+  it("accumulator resets to 0 on play", () => {
+    const s0: PlaybackState = { ...initialState(), eventAccumulator: 0.7 };
+    const s1 = step(s0, { type: "play" });
+    expect(s1.eventAccumulator).toBe(0);
+  });
+
+  it("accumulator resets to 0 on pause", () => {
+    const s0: PlaybackState = {
+      ...initialState(),
+      status: "playing",
+      eventAccumulator: 0.7,
+    };
+    const s1 = step(s0, { type: "pause" });
+    expect(s1.eventAccumulator).toBe(0);
+  });
+
+  it("accumulator resets to 0 on step-forward", () => {
+    const s0: PlaybackState = { ...initialState(), eventIndex: 2, eventAccumulator: 0.9 };
+    const s1 = step(s0, { type: "step-forward" });
+    expect(s1.eventAccumulator).toBe(0);
+  });
+
+  it("accumulator resets to 0 on step-back", () => {
+    const s0: PlaybackState = { ...initialState(), eventIndex: 2, eventAccumulator: 0.9 };
+    const s1 = step(s0, { type: "step-back" });
+    expect(s1.eventAccumulator).toBe(0);
+  });
+
+  it("accumulator resets to 0 on scrub", () => {
+    const s0: PlaybackState = { ...initialState(), eventAccumulator: 0.5 };
+    const s1 = step(s0, { type: "scrub", eventIndex: 5 });
+    expect(s1.eventAccumulator).toBe(0);
+  });
+
+  it("accumulator resets to 0 on set-speed", () => {
+    const s0: PlaybackState = { ...initialState(), eventAccumulator: 0.6 };
+    const s1 = step(s0, { type: "set-speed", speed: 2 });
+    expect(s1.eventAccumulator).toBe(0);
+  });
+
+  it("accumulator resets to 0 on restart", () => {
+    const s0: PlaybackState = {
+      ...initialState(),
+      status: "done",
+      eventAccumulator: 0.8,
+      speed: 2,
+    };
+    const s1 = step(s0, { type: "restart" });
+    expect(s1.eventAccumulator).toBe(0);
+    expect(s1.speed).toBe(2);
+  });
+
+  it("accumulator resets to 0 on jump-to-chapter", () => {
+    const s0: PlaybackState = { ...initialState(), eventAccumulator: 0.4 };
+    const s1 = step(s0, { type: "jump-to-chapter", chapterIndex: 1 });
+    expect(s1.eventAccumulator).toBe(0);
+  });
+
+  it("accumulator resets to 0 on jump-chapter", () => {
+    const s0: PlaybackState = {
+      ...initialState(),
+      eventIndex: 0,
+      eventAccumulator: 0.3,
+    };
+    const s1 = step(s0, { type: "jump-chapter", direction: "forward" });
+    expect(s1.eventAccumulator).toBe(0);
+  });
+
+  it("accumulator resets to 0 when reconstruction-hold is entered", () => {
+    // eventIndex 2, tick large enough to cross reconstruction at index 3
+    const playing: PlaybackState = {
+      ...initialState(),
+      status: "playing",
+      eventIndex: 2,
+      eventAccumulator: 0.5,
+    };
+    const deltaMs = MS_PER_EVENT_1X * 5;
+    const s = step(playing, { type: "tick", deltaMs });
+    expect(s.status).toBe("reconstruction-hold");
+    expect(s.eventAccumulator).toBe(0);
+  });
+
+  it("accumulator resets to 0 when final-reveal-hold is entered", () => {
+    const playing: PlaybackState = {
+      ...initialState(),
+      status: "playing",
+      eventIndex: 7,
+      eventAccumulator: 0.5,
+    };
+    const deltaMs = MS_PER_EVENT_1X * 5;
+    const s = step(playing, { type: "tick", deltaMs });
+    expect(s.status).toBe("final-reveal-hold");
+    expect(s.eventAccumulator).toBe(0);
+  });
+
+  it("accumulator resets to 0 when status becomes done", () => {
+    // eventIndex 9 is maxIndex (10 events, indices 0-9); a tick should trigger done
+    const playing: PlaybackState = {
+      ...initialState(),
+      status: "playing",
+      // Past final marker (8) and reconstruction (3) so no holds; at index 9 (max)
+      // Actually maxIndex=9 and we need a tick that sets nextIndex >= maxIndex.
+      // Put index at 8 (past finalEventIndex=8 already means we won't re-trigger it),
+      // but we need to be past both markers. Use index 9 directly — a tick of any
+      // positive delta should clamp to maxIndex and return done.
+      eventIndex: 9,
+      eventAccumulator: 0.3,
+    };
+    const s = step(playing, { type: "tick", deltaMs: 1 });
+    // nextIndex = clamp(9 + floor(0.3 + 0.025), 0, 9) = clamp(9, 0, 9) = 9 → done
+    expect(s.status).toBe("done");
+    expect(s.eventAccumulator).toBe(0);
+  });
+});

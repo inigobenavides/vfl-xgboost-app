@@ -40,13 +40,32 @@ export function usePlayback(
 
     let lastTime = performance.now();
     let rafId: number;
+
+    // Cap each tick's deltaMs so a backgrounded tab (where RAF is paused but
+    // lastTime is frozen) doesn't burst hundreds of events on return.
+    const MAX_DELTA_MS = 100;
+
     const frame = (now: number) => {
-      dispatch({ type: "tick", deltaMs: now - lastTime });
+      const delta = Math.min(now - lastTime, MAX_DELTA_MS);
+      dispatch({ type: "tick", deltaMs: delta });
       lastTime = now;
       rafId = requestAnimationFrame(frame);
     };
     rafId = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(rafId);
+
+    // Additionally reset lastTime when the tab becomes visible again so the
+    // first post-background frame starts from "now", not from when we left.
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        lastTime = performance.now();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [state.status, dispatch]);
 
   // Keyboard shortcuts
