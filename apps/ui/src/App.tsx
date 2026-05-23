@@ -190,7 +190,7 @@ function PlayerApp({ events }: PlayerAppProps) {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.35 }}
-                  className="flex flex-col gap-4"
+                  className="flex flex-col gap-4 min-w-0"
                 >
                   <Filmstrip events={events} eventIndex={playState.eventIndex} />
                   <AucChart events={events} eventIndex={playState.eventIndex} />
