@@ -193,6 +193,7 @@ function PlayerApp({ events }: PlayerAppProps) {
                   initial={{ opacity: 1 }}
                   exit={{ opacity: 0, scale: 0.92 }}
                   transition={{ duration: 0.3 }}
+                  className="min-w-0"
                 >
                   <h3 className="text-xs text-gray-500 mb-2 uppercase tracking-wider">
                     Tree 0

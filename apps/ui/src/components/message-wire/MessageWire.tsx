@@ -14,8 +14,9 @@ import type { ProtocolMessageEvent, TraceEvent } from "../../lib/trace-reader";
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Y offset from the top of the grid container where the wire runs. */
-const WIRE_Y = 50;
+/** Y offset from the top of the grid container where the wire runs.
+ *  22px sits within the panel header row ("GUEST"/"HOST"), above the data rows. */
+const WIRE_Y = 22;
 /** Approximate half-width of a rendered pill badge (px). */
 const PILL_HALF_W = 88;
 /** How many trailing events to keep pills visible. */
@@ -141,11 +142,11 @@ export function MessageWire({ events, eventIndex }: MessageWireProps) {
 
   const pills = usePills(events, eventIndex);
 
-  // Layout geometry (mirrors App.tsx grid: p-6 outer, cols=[220px_1fr_220px] gap-4)
-  // Guest column center: 24(padding) + 220/2 = 134px
-  // Host column center: width - 134px
-  const guestX = 134;
-  const hostX = width - 134;
+  // Layout geometry (grid: cols=[220px_1fr_220px] gap-4, no padding on the grid itself)
+  // Guest column center: 220/2 = 110px from grid left edge
+  // Host column center: width - 110px
+  const guestX = 110;
+  const hostX = width - 110;
   const centerX = width / 2;
 
   return (
