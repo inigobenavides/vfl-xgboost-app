@@ -16,7 +16,7 @@ export function TitleCard({ runMeta, onPlay }: TitleCardProps) {
   return (
     <div className="fixed inset-0 bg-gray-950 flex flex-col items-center justify-center z-50">
       {/* Title */}
-      <h1 className="text-3xl md:text-4xl font-bold text-white text-center max-w-2xl leading-tight mb-4 px-4">
+      <h1 className="text-3xl md:text-4xl font-bold text-white text-center max-w-4xl leading-tight mb-4 px-4">
         Federated XGBoost on UCI Adult
         <br />
         <span className="text-gray-400 text-2xl md:text-3xl font-normal">
