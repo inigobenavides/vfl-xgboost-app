@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
 #
-# baseline-linux.sh — regenerate Linux Playwright visual baselines from any host.
+# test-visual-linux.sh — run Playwright visual regression tests against the
+# committed Linux baselines from any host.
 #
 # Why: per ADR-0002, Linux is the single canonical platform for Playwright
-# visual baselines. The *-chromium-linux.png files in
-# src/tests/snapshots/visual.spec.ts-snapshots/ must be rendered by Linux
-# Chromium. macOS/Windows contributors can't produce them natively. This
-# script spins up the official Playwright Docker image — pinned via
-# scripts/_playwright-docker.sh to match @playwright/test in package.json —
-# builds Storybook inside the container, and runs
-# `playwright test --update-snapshots --project=chromium` so the refreshed
-# PNGs land directly in the host repo via a bind mount.
+# visual baselines. macOS/Windows contributors can verify a UI change against
+# the canonical *-chromium-linux.png files without going through CI by spinning
+# up the same Playwright Docker image as `baseline:linux`. Unlike
+# `baseline:linux`, this script does NOT pass --update-snapshots — it only
+# asserts.
 #
 # Usage:
-#   npm run baseline:linux                # from apps/ui/
+#   npm run test:visual:linux             # from apps/ui/
 #
 # Requirements:
 #   - Docker installed and running on the host.
@@ -25,20 +23,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UI_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${UI_DIR}/../.." && pwd)"
 
-# Shared Docker constants (IMAGE, CONTAINER_UI_DIR, require_docker).
+# Shared Docker constants (IMAGE, CONTAINER_UI_DIR, require_docker) — kept in
+# lockstep with baseline-linux.sh so verification and regeneration use the
+# identical renderer.
 # shellcheck source=./_playwright-docker.sh
 source "${SCRIPT_DIR}/_playwright-docker.sh"
 
 require_docker
 
-echo "==> Regenerating Linux Playwright baselines via ${IMAGE}"
+echo "==> Running Linux Playwright visual tests via ${IMAGE}"
 echo "    repo root:    ${REPO_ROOT}"
 echo "    mounting at:  /work"
 
 # Build the command we'll run inside the container. We always reinstall deps
 # inside the container because host node_modules (likely darwin-arm64) won't
 # work on linux-x64. Storybook gets a fresh static build, then Playwright
-# refreshes the chromium project's Linux snapshots.
+# asserts (no --update-snapshots) against the committed *-chromium-linux.png
+# baselines.
 CONTAINER_CMD=$(cat <<'EOF'
 set -euo pipefail
 cd /work/apps/ui
@@ -49,14 +50,15 @@ npm ci
 echo "==> npm run build-storybook (inside container)"
 npm run build-storybook
 
-echo "==> playwright test --update-snapshots --project=chromium"
-npx playwright test --update-snapshots --project=chromium
+echo "==> playwright test --project=chromium"
+npx playwright test --project=chromium
 EOF
 )
 
 # --rm:           clean up the container on exit
 # -t:             allocate a tty so progress output streams nicely
-# -v REPO:/work:  bind-mount the repo root so updated PNGs land on the host
+# -v REPO:/work:  bind-mount the repo root so the test report and any diff
+#                 artefacts land on the host
 # -w:             start inside apps/ui to mirror the contributor's shell
 docker run \
   --rm \
