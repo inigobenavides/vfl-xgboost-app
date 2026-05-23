@@ -167,6 +167,26 @@ test.describe("AucChart", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Act1Layout — composition test guarding against MessageWire/panel overlap
+// ---------------------------------------------------------------------------
+
+test.describe("Act1Layout", () => {
+  for (const story of ["early", "mid-tree-0", "fully-grown"]) {
+    test(story, async ({ page }) => {
+      await page.setViewportSize(VIEWPORT);
+      await page.goto(storyUrl("act1-layout-stories", story));
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(800); // allow MessageWire spring + tree mount to settle
+      // Composition test — keep this threshold tight (1%) so pill/panel overlap
+      // regressions can't slip through. Larger than per-component thresholds
+      // because the layout has more area to vary; tighter than the default 3%
+      // because we proved a 2% diff fails to surface a missing wire band.
+      await expect(page).toHaveScreenshot(`act1-layout-${story}.png`, { maxDiffPixelRatio: 0.01 });
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // FinalRevealFrame
 // ---------------------------------------------------------------------------
 
