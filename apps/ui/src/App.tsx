@@ -9,6 +9,7 @@ import { MessageWire } from "./components/message-wire/MessageWire";
 import { ReconstructionBeat } from "./components/reconstruction-beat/ReconstructionBeat";
 import { Filmstrip } from "./components/filmstrip/Filmstrip";
 import { AucChart } from "./components/auc-chart/AucChart";
+import { TreeSummaryPanel } from "./components/tree-summary-panel/TreeSummaryPanel";
 import { FinalRevealFrame } from "./components/final-reveal/FinalRevealFrame";
 import { usePlayback } from "./lib/usePlayback";
 import { buildConfig } from "./lib/playback";
@@ -193,6 +194,9 @@ function PlayerApp({ events }: PlayerAppProps) {
                 >
                   <Filmstrip events={events} eventIndex={playState.eventIndex} />
                   <AucChart events={events} eventIndex={playState.eventIndex} />
+                  <div className="border-t border-gray-800 pt-3">
+                    <TreeSummaryPanel events={events} eventIndex={playState.eventIndex} />
+                  </div>
                 </motion.section>
               ) : (
                 <motion.section

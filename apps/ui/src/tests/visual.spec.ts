@@ -187,6 +187,39 @@ test.describe("Act1Layout", () => {
 });
 
 // ---------------------------------------------------------------------------
+// TreeSummaryPanel
+// ---------------------------------------------------------------------------
+
+test.describe("TreeSummaryPanel", () => {
+  for (const story of ["empty", "one-tree", "all-trees"]) {
+    test(story, async ({ page }) => {
+      await page.setViewportSize(VIEWPORT);
+      await page.goto(storyUrl("tree-summary-panel-stories", story));
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(400); // allow Framer Motion to settle
+      await expect(page).toHaveScreenshot(`tree-summary-panel-${story}.png`, { maxDiffPixelRatio: 0.01 });
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Act2Layout — composition test guarding against dead-space regression
+// ---------------------------------------------------------------------------
+
+test.describe("Act2Layout", () => {
+  for (const story of ["one-tree", "all-trees"]) {
+    test(story, async ({ page }) => {
+      await page.setViewportSize(VIEWPORT);
+      await page.goto(storyUrl("act2-layout-stories", story));
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(800); // allow filmstrip spring + panel mount to settle
+      // Same tight threshold as Act1Layout — catch any empty-band regressions.
+      await expect(page).toHaveScreenshot(`act2-layout-${story}.png`, { maxDiffPixelRatio: 0.01 });
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // FinalRevealFrame
 // ---------------------------------------------------------------------------
 
