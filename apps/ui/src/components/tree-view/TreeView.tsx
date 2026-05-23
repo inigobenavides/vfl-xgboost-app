@@ -191,18 +191,24 @@ export function TreeView({ events, eventIndex }: TreeViewProps) {
     );
   }
 
-  const { nodes, links, minX, maxX, maxY } = layout;
+  const { nodes, links, minX, maxX, minY, maxY } = layout;
+
+  // The top-most node centre sits at minY (0 for root).  Its box extends
+  // BOX_H/2 above that centre, so we need an extra top-margin of at least
+  // BOX_H/2 + a small visual gap to avoid clipping.
+  const TOP_PAD = BOX_H / 2 + 8;
+  const viewBoxTop = minY - TOP_PAD;
 
   const offsetX = -minX + MARGIN;
   const svgW = maxX - minX + MARGIN * 2;
-  const svgH = maxY + NODE_H + MARGIN / 2;
+  const svgH = maxY - minY + NODE_H + MARGIN / 2 + TOP_PAD;
 
   return (
     <div className="w-full overflow-x-auto">
       <svg
         width={svgW}
         height={svgH}
-        viewBox={`0 0 ${svgW} ${svgH}`}
+        viewBox={`0 ${viewBoxTop} ${svgW} ${svgH}`}
         className="font-mono"
       >
         {/* Edges (rendered first so they appear behind nodes) */}

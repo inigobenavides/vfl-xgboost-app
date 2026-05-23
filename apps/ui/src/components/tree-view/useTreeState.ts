@@ -38,6 +38,8 @@ export interface TreeLayout {
   minX: number;
   /** Right edge. */
   maxX: number;
+  /** Top edge (y increases downward; root sits at y=0 so this is 0 or negative). */
+  minY: number;
   /** Bottom edge (y increases downward). */
   maxY: number;
   /** Flat list of all layout nodes for iteration. */
@@ -53,7 +55,7 @@ export interface TreeLayout {
 export function useTreeState(events: TraceEvent[], eventIndex: number): TreeLayout {
   return useMemo<TreeLayout>(() => {
     const EMPTY: TreeLayout = {
-      root: null, minX: 0, maxX: 0, maxY: 0, nodes: [], links: [],
+      root: null, minX: 0, maxX: 0, minY: 0, maxY: 0, nodes: [], links: [],
     };
 
     // Collect tree-0 node events visible so far
@@ -91,12 +93,13 @@ export function useTreeState(events: TraceEvent[], eventIndex: number): TreeLayo
     const layoutRoot = layoutFn(hier);
 
     // Bounds
-    let minX = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     const nodes: LayoutNode[] = [];
     layoutRoot.each((n) => {
       nodes.push(n);
       if (n.x < minX) minX = n.x;
       if (n.x > maxX) maxX = n.x;
+      if (n.y < minY) minY = n.y;
       if (n.y > maxY) maxY = n.y;
     });
 
@@ -105,6 +108,6 @@ export function useTreeState(events: TraceEvent[], eventIndex: number): TreeLayo
       if (n.parent) links.push({ source: n.parent, target: n });
     });
 
-    return { root: layoutRoot, minX, maxX, maxY, nodes, links };
+    return { root: layoutRoot, minX, maxX, minY, maxY, nodes, links };
   }, [events, eventIndex]);
 }
