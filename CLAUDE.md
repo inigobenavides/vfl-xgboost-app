@@ -85,6 +85,15 @@ docker compose up                # 2-party local
 uv run python -m fxgb.demo       # end-to-end demo on sample data
 ```
 
+UI-side (run from `apps/ui/`):
+
+```bash
+npm test                         # vitest unit tests
+npm run test:visual              # Playwright visual regression vs. committed baselines
+npm run baseline:linux           # regen *-chromium-linux.png baselines via Docker
+                                 # (after a visual change, before pushing the PR)
+```
+
 ## MVP definition of done
 
 Vertical federation of 2 parties trains an XGBoost model on UCI Adult, achieves AUC within 0.02 of a centralized baseline, with all gradient/hessian exchanges secret-shared and a protocol trace showing no party learned the other's raw features. CLI demo first; UI second.

@@ -35,11 +35,26 @@ Visual tests capture screenshots of each Storybook story and compare against com
 # Requires a Storybook static build (run build-storybook first)
 npm run test:visual
 
-# Update baselines after intentional UI changes
+# Update baselines after intentional UI changes (host OS only — see below for Linux)
 npm run test:visual -- --update-snapshots
 ```
 
 Baselines live in `src/tests/snapshots/`. The CI workflow (`.github/workflows/visual-tests.yml`) runs these on every push that touches `apps/ui/`.
+
+#### Regenerating Linux baselines from macOS/Windows
+
+CI runs Playwright on `ubuntu-latest`, so the `*-chromium-linux.png` baselines must be rendered by Linux Chromium. Running `--update-snapshots` on macOS only refreshes the `*-chromium-darwin.png` files; the Linux ones are unchanged.
+
+When a visual change affects baselines, regenerate the Linux PNGs before pushing the PR:
+
+```bash
+# From apps/ui/ — requires Docker installed and running on the host
+npm run baseline:linux
+```
+
+This pulls the official Playwright Docker image (pinned in `scripts/baseline-linux.sh` to match `@playwright/test` in `package.json`), bind-mounts the repo, builds Storybook inside the container, and runs `playwright test --update-snapshots --project=chromium`. Refreshed `*-chromium-linux.png` files land directly in `src/tests/snapshots/visual.spec.ts-snapshots/` on the host, ready to commit. The first run is slow — it pulls a ~1.5 GB image and runs `npm ci` inside the container.
+
+After regenerating, run `npm run test:visual` locally to confirm the darwin baselines still match, then commit both the darwin and linux PNGs in the same PR.
 
 ## Component overview
 
