@@ -148,7 +148,7 @@ export function GuestPanel({ events, eventIndex }: GuestPanelProps) {
       {/* Labels + gradient strips side by side */}
       <div className="flex gap-3 items-start">
         <LabelStrip positiveRatio={gs.positiveRatio} />
-        <div className="flex-1 flex flex-col gap-3">
+        <div className="flex-1 min-w-0 flex flex-col gap-3">
           <BarStrip values={gs.gradients} label="Gradients (g)" />
           <BarStrip values={gs.hessians} label="Hessians (h)" />
         </div>

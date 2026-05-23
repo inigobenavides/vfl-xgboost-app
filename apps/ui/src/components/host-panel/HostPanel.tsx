@@ -107,7 +107,7 @@ function HistogramBars({ values, label }: { values: number[]; label: string }) {
       <p className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">
         {label}
       </p>
-      <div className="flex items-end gap-px h-12 overflow-hidden">
+      <div className="flex items-end gap-px h-12 overflow-hidden w-full">
         {values.map((v, i) => (
           <div
             key={i}
