@@ -10,6 +10,7 @@ import {
   BOX_H,
   BOX_W,
   LEAF_BOX_H,
+  LEAF_BOX_W,
   NODE_H,
   NODE_W,
   useTreeState,
@@ -64,11 +65,11 @@ function TreeNodeShape({ node, offsetX }: TreeNodeProps) {
       transition={{ type: "spring", stiffness: 280, damping: 26 }}
       style={{ originX: "50%", originY: "0%" }}
     >
-      {/* Box */}
+      {/* Box — leaf nodes keep original 152 px width; internal nodes use 180 px */}
       <rect
-        x={-BOX_W / 2}
+        x={-(event.is_leaf ? LEAF_BOX_W : BOX_W) / 2}
         y={-boxH / 2}
-        width={BOX_W}
+        width={event.is_leaf ? LEAF_BOX_W : BOX_W}
         height={boxH}
         rx={6}
         className={event.is_leaf ? "fill-gray-800 stroke-gray-600" : "fill-gray-800 stroke-gray-500"}

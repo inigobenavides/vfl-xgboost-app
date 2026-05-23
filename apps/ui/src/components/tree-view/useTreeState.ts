@@ -24,11 +24,19 @@ export interface TreeNodeData {
 export type LayoutNode = HierarchyPointNode<TreeNodeData>;
 
 // px spacing handed to d3.tree().nodeSize()
-export const NODE_W = 180;
+// NODE_W bumped from 180→210 to maintain ~30 px clearance between siblings
+// after BOX_W was widened (issue #37).
+export const NODE_W = 210;
 export const NODE_H = 110;
-// visual dimensions of the SVG rect drawn for each node
-export const BOX_W = 152;
+// visual dimensions of the SVG rect drawn for each node.
+// BOX_W widened from 152→180 so that the longest feature label in the
+// canonical UCI Adult trace ("education-num : bin 47", 22 chars) fits
+// comfortably at fontSize=12 fontWeight=600 without bleeding past the rect.
+// Leaf nodes render only "weight" + value + sample count — all short — so
+// they keep the original 152 px width via LEAF_BOX_W.
+export const BOX_W = 180;
 export const BOX_H = 52;
+export const LEAF_BOX_W = 152;
 export const LEAF_BOX_H = 44;
 
 export interface TreeLayout {
