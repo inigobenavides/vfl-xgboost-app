@@ -15,6 +15,8 @@ import { usePlayback } from "./lib/usePlayback";
 import { buildConfig } from "./lib/playback";
 import { deriveRunMeta, type RunMeta } from "./lib/runMeta";
 import { parseTrace, type TraceEvent } from "./lib/trace-reader";
+import { JargonTerm } from "./components/ui/Tooltip";
+import { TOOLTIPS } from "./lib/tooltips";
 
 // ---------------------------------------------------------------------------
 // PlayerApp — inner component mounted only when events are loaded.
@@ -97,19 +99,35 @@ function ChapterCaption({
   const reducedMotion = useReducedMotion();
 
   let key: "act1" | "act2" | "reconstruction";
-  let text: string;
+  let body: React.ReactNode;
   if (isReconstruction) {
     key = "reconstruction";
-    text =
-      "Pause. The shares are combined to find the best split — without either party ever seeing the other's raw signal.";
+    body = (
+      <>
+        Pause. The{" "}
+        <JargonTerm content={TOOLTIPS.cryptoShare}>shares</JargonTerm> are
+        combined to find the best split — without either party ever seeing the
+        other's raw signal.
+      </>
+    );
   } else if (isAct2) {
     key = "act2";
-    text =
-      "One tree isn't enough. 99 more train the same way — each correcting the last. Watch the AUC climb.";
+    body = (
+      <>
+        One tree isn't enough. 99 more train the same way — each correcting the
+        last. Watch the <JargonTerm content={TOOLTIPS.auc}>AUC</JargonTerm>{" "}
+        climb.
+      </>
+    );
   } else {
     key = "act1";
-    text =
-      "The Guest holds the labels; the Host holds the features. Watch the wire as crypto shares of gradients fly between them — each piece meaningless alone.";
+    body = (
+      <>
+        The Guest holds the labels; the Host holds the features. Watch the wire
+        as <JargonTerm content={TOOLTIPS.cryptoShare}>crypto shares</JargonTerm>{" "}
+        of gradients fly between them — each piece meaningless alone.
+      </>
+    );
   }
 
   const transition = reducedMotion
@@ -127,7 +145,7 @@ function ChapterCaption({
           exit={{ opacity: 0, y: -4 }}
           transition={transition}
         >
-          {text}
+          {body}
         </motion.p>
       </AnimatePresence>
     </div>

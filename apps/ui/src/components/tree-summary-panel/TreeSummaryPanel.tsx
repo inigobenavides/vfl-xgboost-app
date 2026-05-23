@@ -15,6 +15,8 @@
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { TraceEvent } from "../../lib/trace-reader";
+import { JargonTerm } from "../ui/Tooltip";
+import { TOOLTIPS } from "../../lib/tooltips";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -203,7 +205,8 @@ export function TreeSummaryPanel({ events, eventIndex }: TreeSummaryPanelProps) 
                 <span className="text-fore-2 font-bold">{summary.treeIndex}</span>
               </span>
               <span className="text-[11px] font-mono text-public tabular-nums">
-                AUC&nbsp;{summary.auc.toFixed(4)}
+                <JargonTerm content={TOOLTIPS.auc}>AUC</JargonTerm>
+                &nbsp;{summary.auc.toFixed(4)}
               </span>
               {summary.aucDelta !== null && (
                 <DeltaBadge delta={summary.aucDelta} />
@@ -239,7 +242,7 @@ export function TreeSummaryPanel({ events, eventIndex }: TreeSummaryPanelProps) 
             {summary.minLeaf !== null && summary.maxLeaf !== null && (
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[9px] font-mono text-mute-1 uppercase tracking-wider">
-                  leaf weights
+                  <JargonTerm content={TOOLTIPS.leafWeight}>leaf weights</JargonTerm>
                 </span>
                 <span className="text-[9px] font-mono text-mute-2 tabular-nums">
                   [{summary.minLeaf.toFixed(3)},&nbsp;{summary.maxLeaf.toFixed(3)}]

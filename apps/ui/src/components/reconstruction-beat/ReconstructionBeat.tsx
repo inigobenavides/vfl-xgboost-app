@@ -16,6 +16,8 @@ import type {
   ReconstructionAggregateEvent,
   TraceEvent,
 } from "../../lib/trace-reader";
+import { JargonTerm } from "../ui/Tooltip";
+import { TOOLTIPS } from "../../lib/tooltips";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -225,7 +227,8 @@ export function ReconstructionBeat({ events, holdMsRemaining }: ReconstructionBe
             >
               <div className="flex items-baseline justify-between mb-3">
                 <span className="text-xs font-bold text-wire uppercase tracking-widest">
-                  Reconstruction Aggregate
+                  <JargonTerm content={TOOLTIPS.reconstruction}>Reconstruction</JargonTerm>{" "}
+                  Aggregate
                 </span>
                 <span className="text-[10px] text-gray-500 font-mono">
                   {data.recon.feature_id} · {data.recon.node_id}

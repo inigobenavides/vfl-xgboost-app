@@ -7,6 +7,8 @@
 
 import { useMemo } from "react";
 import type { ReconstructionAggregateEvent, TraceEvent } from "../../lib/trace-reader";
+import { JargonTerm } from "../ui/Tooltip";
+import { TOOLTIPS } from "../../lib/tooltips";
 
 // ---------------------------------------------------------------------------
 // Data derivation
@@ -72,11 +74,25 @@ function useGuestState(events: TraceEvent[], eventIndex: number): GuestState {
 // ---------------------------------------------------------------------------
 
 /** Horizontal bar strip. Each value in [-1, 1]; positive = guest, negative = private. */
-function BarStrip({ values, label }: { values: number[]; label: string }) {
+function BarStrip({
+  values,
+  label,
+  tooltip,
+}: {
+  values: number[];
+  label: string;
+  tooltip?: string;
+}) {
+  const heading = (
+    <p className="text-[10px] font-mono text-mute-1 mb-1 uppercase tracking-wider">
+      {tooltip ? <JargonTerm content={tooltip}>{label}</JargonTerm> : label}
+    </p>
+  );
+
   if (values.length === 0) {
     return (
       <div>
-        <p className="text-[10px] font-mono text-mute-1 mb-1 uppercase tracking-wider">{label}</p>
+        {heading}
         <div className="h-5 w-full rounded bg-ink-3 flex items-center justify-center">
           <span className="text-[9px] font-mono text-mute-1">waiting…</span>
         </div>
@@ -88,7 +104,7 @@ function BarStrip({ values, label }: { values: number[]; label: string }) {
 
   return (
     <div>
-      <p className="text-[10px] font-mono text-mute-1 mb-1 uppercase tracking-wider">{label}</p>
+      {heading}
       <div className="flex items-end gap-px h-8 overflow-hidden rounded">
         {values.map((v, i) => {
           const h = Math.round(Math.abs(v) * 100);
@@ -149,8 +165,8 @@ export function GuestPanel({ events, eventIndex }: GuestPanelProps) {
       <div className="flex gap-3 items-start">
         <LabelStrip positiveRatio={gs.positiveRatio} />
         <div className="flex-1 min-w-0 flex flex-col gap-3">
-          <BarStrip values={gs.gradients} label="Gradients (g)" />
-          <BarStrip values={gs.hessians} label="Hessians (h)" />
+          <BarStrip values={gs.gradients} label="Gradients (g)" tooltip={TOOLTIPS.gradients} />
+          <BarStrip values={gs.hessians} label="Hessians (h)" tooltip={TOOLTIPS.hessians} />
         </div>
       </div>
 

@@ -9,10 +9,12 @@ import {
   XAxis,
   YAxis,
   ResponsiveContainer,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ReferenceLine,
 } from "recharts";
 import type { TraceEvent } from "../../lib/trace-reader";
+import { JargonTerm } from "../ui/Tooltip";
+import { TOOLTIPS } from "../../lib/tooltips";
 
 interface AucChartProps {
   events: TraceEvent[];
@@ -42,7 +44,9 @@ export function AucChart({ events, eventIndex }: AucChartProps) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between">
-        <p className="text-[10px] text-gray-500 uppercase tracking-wider">AUC</p>
+        <p className="text-[10px] font-mono text-mute-1 uppercase tracking-wider">
+          <JargonTerm content={TOOLTIPS.auc}>AUC</JargonTerm>
+        </p>
         {lastAuc !== null && (
           <span className="text-[10px] font-mono text-public tabular-nums">
             {lastAuc.toFixed(4)}
@@ -51,7 +55,7 @@ export function AucChart({ events, eventIndex }: AucChartProps) {
       </div>
       {sparse ? (
         <div
-          className="flex items-center justify-center text-[10px] text-gray-600 italic"
+          className="flex items-center justify-center text-[10px] font-mono text-mute-1 italic"
           style={{ height: 80 }}
         >
           AUC will plot here once trees train
@@ -61,36 +65,36 @@ export function AucChart({ events, eventIndex }: AucChartProps) {
           <LineChart data={data} margin={{ top: 4, right: 6, left: -24, bottom: 0 }}>
             <XAxis
               dataKey="tree"
-              tick={{ fontSize: 8, fill: "#4b5563" }}
+              tick={{ fontSize: 8, fill: "var(--color-line-2)" }}
               tickLine={false}
               axisLine={false}
               label={undefined}
             />
             <YAxis
               domain={["auto", "auto"]}
-              tick={{ fontSize: 8, fill: "#4b5563" }}
+              tick={{ fontSize: 8, fill: "var(--color-line-2)" }}
               tickLine={false}
               axisLine={false}
               width={36}
               tickFormatter={(v: number) => v.toFixed(2)}
             />
-            <Tooltip
+            <RechartsTooltip
               contentStyle={{
-                background: "#111827",
-                border: "1px solid #374151",
+                background: "var(--color-ink-2)",
+                border: "1px solid var(--color-line-1)",
                 borderRadius: 4,
                 fontSize: 9,
                 padding: "2px 6px",
               }}
-              itemStyle={{ color: "#3b82f6" }}
-              labelStyle={{ color: "#9ca3af" }}
+              itemStyle={{ color: "var(--color-public)" }}
+              labelStyle={{ color: "var(--color-mute-2)" }}
               formatter={(v) => [typeof v === "number" ? v.toFixed(4) : String(v), "AUC"]}
               labelFormatter={(l) => `tree ${String(l)}`}
             />
             {data.length > 0 && (
               <ReferenceLine
                 y={data[0].auc}
-                stroke="#374151"
+                stroke="var(--color-line-2)"
                 strokeDasharray="3 3"
                 strokeWidth={0.5}
               />
@@ -98,7 +102,7 @@ export function AucChart({ events, eventIndex }: AucChartProps) {
             <Line
               type="monotone"
               dataKey="auc"
-              stroke="#3b82f6"
+              stroke="var(--color-public)"
               strokeWidth={1.5}
               dot={false}
               isAnimationActive={false}
