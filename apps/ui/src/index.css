@@ -87,8 +87,8 @@ body {
  * explicit styling makes the affordance reliably visible. */
 .filmstrip-scroll {
   overflow-x: scroll;
-  scrollbar-width: thin;            /* Firefox */
-  scrollbar-color: #374151 transparent; /* Firefox: thumb track */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-2) transparent;
 }
 .filmstrip-scroll::-webkit-scrollbar {
   height: 4px;
@@ -97,6 +97,6 @@ body {
   background: transparent;
 }
 .filmstrip-scroll::-webkit-scrollbar-thumb {
-  background-color: #374151;
+  background-color: var(--color-line-2);
   border-radius: 2px;
 }

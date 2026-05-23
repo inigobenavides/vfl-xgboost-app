@@ -122,7 +122,7 @@ function TreeThumb({ events, treeIndex, isFirst }: TreeThumbProps) {
 
   return (
     <motion.div
-      className="relative overflow-hidden rounded border border-gray-700 bg-gray-900 flex-shrink-0"
+      className="relative overflow-hidden rounded border border-line-1 bg-ink-2 flex-shrink-0"
       style={{ width: THUMB_W, height: THUMB_H }}
       initial={{ opacity: 0, scale: 0.7, y: 6 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -149,7 +149,7 @@ function TreeThumb({ events, treeIndex, isFirst }: TreeThumbProps) {
               y1={l.y1}
               x2={l.x2}
               y2={l.y2}
-              stroke="#374151"
+              stroke="var(--color-line-2)"
               strokeWidth={0.6}
             />
           ))}
@@ -159,16 +159,16 @@ function TreeThumb({ events, treeIndex, isFirst }: TreeThumbProps) {
               cx={n.x}
               cy={n.y}
               r={n.isLeaf ? 1.2 : 1.8}
-              fill={n.isLeaf ? "#374151" : "#6b7280"}
+              fill={n.isLeaf ? "var(--color-line-2)" : "var(--color-mute-1)"}
             />
           ))}
         </svg>
       ) : (
         <div className="w-full h-full flex items-center justify-center">
-          <span className="text-[8px] text-gray-700">{treeIndex}</span>
+          <span className="text-[8px] text-mute-1">{treeIndex}</span>
         </div>
       )}
-      <span className="absolute bottom-0 right-0.5 text-[7px] text-gray-700 leading-none pb-0.5">
+      <span className="absolute bottom-0 right-0.5 text-[7px] text-mute-1 leading-none pb-0.5">
         {treeIndex}
       </span>
     </motion.div>
@@ -227,10 +227,10 @@ export function Filmstrip({ events, eventIndex }: FilmstripProps) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+        <p className="text-[10px] font-mono text-mute-1 uppercase tracking-wider">
           Trees
         </p>
-        <span className="text-[10px] font-mono text-gray-500 tabular-nums">
+        <span className="text-[10px] font-mono text-mute-1 tabular-nums">
           {visibleTrees.length} / 100
         </span>
       </div>
@@ -243,7 +243,7 @@ export function Filmstrip({ events, eventIndex }: FilmstripProps) {
             className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10"
             style={{
               background:
-                "linear-gradient(to right, rgb(3 7 18), transparent)",
+                "linear-gradient(to right, var(--color-ink-1), transparent)",
             }}
           />
         )}
@@ -254,7 +254,7 @@ export function Filmstrip({ events, eventIndex }: FilmstripProps) {
             className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10"
             style={{
               background:
-                "linear-gradient(to left, rgb(3 7 18), transparent)",
+                "linear-gradient(to left, var(--color-ink-1), transparent)",
             }}
           />
         )}

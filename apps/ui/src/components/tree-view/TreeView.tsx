@@ -72,7 +72,7 @@ function TreeNodeShape({ node, offsetX }: TreeNodeProps) {
         width={event.is_leaf ? LEAF_BOX_W : BOX_W}
         height={boxH}
         rx={6}
-        className={event.is_leaf ? "fill-gray-800 stroke-gray-600" : "fill-gray-800 stroke-gray-500"}
+        className={event.is_leaf ? "fill-ink-3 stroke-line-1" : "fill-ink-3 stroke-line-2"}
         strokeWidth={1}
       />
 
@@ -92,12 +92,12 @@ function TreeNodeShape({ node, offsetX }: TreeNodeProps) {
             y={9}
             fontSize={13}
             fontWeight={600}
-            className="fill-white"
+            className="fill-fore-2"
           >
             {event.leaf_weight !== null ? event.leaf_weight.toFixed(4) : "—"}
           </text>
           {/* Sample count */}
-          <text textAnchor="middle" y={24} fontSize={10} className="fill-gray-400">
+          <text textAnchor="middle" y={24} fontSize={10} className="fill-mute-2">
             {event.n_samples} samples
           </text>
         </>
@@ -123,7 +123,7 @@ function TreeNodeShape({ node, offsetX }: TreeNodeProps) {
             gain {event.gain !== null ? event.gain.toFixed(3) : "—"}
           </text>
           {/* Sample count */}
-          <text textAnchor="middle" y={19} fontSize={10} className="fill-gray-400">
+          <text textAnchor="middle" y={19} fontSize={10} className="fill-mute-2">
             {event.n_samples} samples
           </text>
         </>
@@ -171,7 +171,7 @@ function Edge({ source, target, offsetX, isLeft }: EdgeProps) {
         y1={sy}
         x2={tx}
         y2={ty}
-        stroke="#4b5563"
+        stroke="var(--color-line-2)"
         strokeWidth={1.5}
       />
       {sampleCount > 0 && (
@@ -180,7 +180,7 @@ function Edge({ source, target, offsetX, isLeft }: EdgeProps) {
           y={my - 4}
           textAnchor="middle"
           fontSize={9}
-          fill="#6b7280"
+          fill="var(--color-mute-1)"
         >
           {sampleCount}
         </text>

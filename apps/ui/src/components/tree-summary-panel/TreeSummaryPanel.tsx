@@ -112,10 +112,10 @@ function DeltaBadge({ delta }: { delta: number }) {
   const formatted = (positive ? "+" : "") + (delta * 100).toFixed(2) + "%";
   return (
     <span
-      className={`text-[9px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+      className={`text-[9px] font-mono tabular-nums px-1.5 py-0.5 rounded-chip ${
         positive
-          ? "text-green-400 bg-green-950/60 border border-green-900"
-          : "text-red-400 bg-red-950/60 border border-red-900"
+          ? "text-host bg-host-soft/20 border border-host-soft/40"
+          : "text-private bg-private/10 border border-private/30"
       }`}
     >
       {formatted}
@@ -129,20 +129,20 @@ function SplitRow({ feature, gain, nSamples, maxGain }: SplitRow & { maxGain: nu
   return (
     <div className="grid grid-cols-[1fr_auto_auto] gap-2 items-center py-0.5">
       <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="text-[10px] text-gray-300 truncate font-mono">
+        <span className="text-[10px] text-fore-1 truncate font-mono">
           {feature}
         </span>
-        <div className="relative h-1 bg-gray-800 rounded-full overflow-hidden">
+        <div className="relative h-1 bg-ink-3 rounded-full overflow-hidden">
           <div
-            className="absolute inset-y-0 left-0 bg-blue-500/60 rounded-full"
+            className="absolute inset-y-0 left-0 bg-public/60 rounded-full"
             style={{ width: `${barPct}%` }}
           />
         </div>
       </div>
-      <span className="text-[9px] text-gray-400 tabular-nums font-mono text-right whitespace-nowrap">
+      <span className="text-[9px] text-mute-2 tabular-nums font-mono text-right whitespace-nowrap">
         {gain >= 1000 ? (gain / 1000).toFixed(1) + "k" : gain.toFixed(0)}
       </span>
-      <span className="text-[9px] text-gray-600 tabular-nums font-mono text-right whitespace-nowrap">
+      <span className="text-[9px] text-mute-1 tabular-nums font-mono text-right whitespace-nowrap">
         {nSamples >= 1000 ? (nSamples / 1000).toFixed(1) + "k" : String(nSamples)}
       </span>
     </div>
@@ -172,7 +172,7 @@ export function TreeSummaryPanel({ events, eventIndex }: TreeSummaryPanelProps) 
   return (
     <div className="flex flex-col gap-3">
       {/* Section header */}
-      <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+      <p className="text-[10px] font-mono text-mute-1 uppercase tracking-wider">
         Latest tree
       </p>
 
@@ -183,7 +183,7 @@ export function TreeSummaryPanel({ events, eventIndex }: TreeSummaryPanelProps) 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="text-[10px] text-gray-700 italic"
+            className="text-[10px] font-mono text-mute-1 italic"
           >
             Waiting for first tree…
           </motion.div>
@@ -198,9 +198,9 @@ export function TreeSummaryPanel({ events, eventIndex }: TreeSummaryPanelProps) 
           >
             {/* ── Tree header row ── */}
             <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-[11px] text-gray-400 font-mono">
+              <span className="text-[11px] text-mute-2 font-mono">
                 tree&nbsp;
-                <span className="text-white font-bold">{summary.treeIndex}</span>
+                <span className="text-fore-2 font-bold">{summary.treeIndex}</span>
               </span>
               <span className="text-[11px] font-mono text-public tabular-nums">
                 AUC&nbsp;{summary.auc.toFixed(4)}
@@ -208,7 +208,7 @@ export function TreeSummaryPanel({ events, eventIndex }: TreeSummaryPanelProps) 
               {summary.aucDelta !== null && (
                 <DeltaBadge delta={summary.aucDelta} />
               )}
-              <span className="text-[9px] text-gray-600 font-mono ml-auto">
+              <span className="text-[9px] text-mute-1 font-mono ml-auto">
                 {summary.nNodes}&nbsp;nodes
               </span>
             </div>
@@ -216,10 +216,10 @@ export function TreeSummaryPanel({ events, eventIndex }: TreeSummaryPanelProps) 
             {/* ── Top splits table ── */}
             {summary.topSplits.length > 0 ? (
               <div className="flex flex-col gap-0">
-                <div className="grid grid-cols-[1fr_auto_auto] gap-2 pb-1 border-b border-gray-800">
-                  <span className="text-[8px] text-gray-600 uppercase tracking-wider">feature</span>
-                  <span className="text-[8px] text-gray-600 uppercase tracking-wider text-right">gain</span>
-                  <span className="text-[8px] text-gray-600 uppercase tracking-wider text-right">n</span>
+                <div className="grid grid-cols-[1fr_auto_auto] gap-2 pb-1 border-b border-line-1">
+                  <span className="text-[8px] font-mono text-mute-1 uppercase tracking-wider">feature</span>
+                  <span className="text-[8px] font-mono text-mute-1 uppercase tracking-wider text-right">gain</span>
+                  <span className="text-[8px] font-mono text-mute-1 uppercase tracking-wider text-right">n</span>
                 </div>
                 {summary.topSplits.map((row) => (
                   <SplitRow
@@ -230,7 +230,7 @@ export function TreeSummaryPanel({ events, eventIndex }: TreeSummaryPanelProps) 
                 ))}
               </div>
             ) : (
-              <span className="text-[10px] text-gray-700 italic">
+              <span className="text-[10px] font-mono text-mute-1 italic">
                 No splits yet
               </span>
             )}
@@ -238,10 +238,10 @@ export function TreeSummaryPanel({ events, eventIndex }: TreeSummaryPanelProps) 
             {/* ── Leaf weight range ── */}
             {summary.minLeaf !== null && summary.maxLeaf !== null && (
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[9px] text-gray-600 uppercase tracking-wider">
+                <span className="text-[9px] font-mono text-mute-1 uppercase tracking-wider">
                   leaf weights
                 </span>
-                <span className="text-[9px] font-mono text-gray-400 tabular-nums">
+                <span className="text-[9px] font-mono text-mute-2 tabular-nums">
                   [{summary.minLeaf.toFixed(3)},&nbsp;{summary.maxLeaf.toFixed(3)}]
                 </span>
               </div>
