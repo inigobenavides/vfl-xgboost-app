@@ -125,7 +125,12 @@ function PlayerApp({ events }: PlayerAppProps) {
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
-  const onPlay = () => setAppStatus((s) => (s === "cold-open" ? "playing" : s));
+  const onPlay = () => {
+    if (appStatus === "cold-open") {
+      setAppStatus("playing");
+      playDispatch({ type: "play" });
+    }
+  };
 
   const isColdOpen = appStatus === "cold-open";
 
