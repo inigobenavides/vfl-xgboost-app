@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TitleCard } from "./components/title-card/TitleCard";
 import { Hud } from "./components/hud/Hud";
@@ -78,6 +78,59 @@ function RibbonHeader({
         · run <span className="text-fore-1">{runMeta.runId}</span>
       </p>
     </header>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Chapter caption — plain-English explainer that fades between chapters.
+// Tone follows the project's "Guest/Host as characters + directive phrasing"
+// brief. Kept under ~720px width so line lengths stay readable.
+// ---------------------------------------------------------------------------
+
+function ChapterCaption({
+  isAct2,
+  isReconstruction,
+}: {
+  isAct2: boolean;
+  isReconstruction: boolean;
+}) {
+  const reducedMotion = useReducedMotion();
+
+  let key: "act1" | "act2" | "reconstruction";
+  let text: string;
+  if (isReconstruction) {
+    key = "reconstruction";
+    text =
+      "Pause. The shares are combined to find the best split — without either party ever seeing the other's raw signal.";
+  } else if (isAct2) {
+    key = "act2";
+    text =
+      "One tree isn't enough. 99 more train the same way — each correcting the last. Watch the AUC climb.";
+  } else {
+    key = "act1";
+    text =
+      "The Guest holds the labels; the Host holds the features. Watch the wire as crypto shares of gradients fly between them — each piece meaningless alone.";
+  }
+
+  const transition = reducedMotion
+    ? { duration: 0 }
+    : { duration: 0.32, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] };
+
+  return (
+    <div className="mb-4 max-w-[720px]" aria-live="polite">
+      <AnimatePresence mode="wait">
+        <motion.p
+          key={key}
+          className="text-sm font-sans italic text-mute-2 leading-snug"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={transition}
+        >
+          {text}
+        </motion.p>
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -301,6 +354,12 @@ function PlayerApp({ events }: PlayerAppProps) {
             }}
           >
             <RibbonHeader chapterName={chapterName} runMeta={runMeta} />
+
+            {/* Chapter caption — plain-English narration for non-technical viewers */}
+            <ChapterCaption
+              isAct2={isAct2}
+              isReconstruction={playState.status === "reconstruction-hold"}
+            />
 
             {/* Message wire — pills travel above the panels during Act 1 */}
             {!isAct2 && (
